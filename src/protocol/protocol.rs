@@ -29,7 +29,7 @@ impl ServiceName {
     }
 }
 
-#[derive(Decode, Encode)]
+#[derive(Debug, Decode, Encode)]
 pub struct Event<T> {
     id: u32,
     message: T,

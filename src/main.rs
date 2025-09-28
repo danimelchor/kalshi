@@ -1,5 +1,8 @@
 use clap::{Parser, Subcommand};
-use kalshi::datasource::{datasource::DataSource, example::ExampleComDataSource};
+use kalshi::{
+    datasource::{datasource::DataSource, example::ExampleComDataSource},
+    strategy::{example::ExampleStrategy, strategy::Strategy},
+};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -20,12 +23,12 @@ async fn main() {
 
     match &cli.command {
         Commands::Publisher => {
-            let mut source = ExampleComDataSource::new();
+            let mut source = ExampleComDataSource::default();
             source.run().await.unwrap()
         }
         Commands::Client => {
-            let mut source = ExampleComDataSource::new();
-            source.run().await.unwrap()
+            let mut strategy = ExampleStrategy::default();
+            strategy.run().await.unwrap()
         }
     }
 }

@@ -42,6 +42,7 @@ impl DataSource<ExampleComData> for ExampleComDataSource {
         let status_code = response.status().as_u16();
         let content_length = response.content_length().map(|l| l as usize);
         let content = response.text().await?;
+        println!("Got it! {}", content);
 
         Ok(ExampleComData {
             content,
