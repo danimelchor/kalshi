@@ -14,3 +14,4 @@ strum_macros = "0.27"
 bincode = { version = "2.0", features = ["serde"] }
 futures = "0.3.31"
 reqwest = "0.12.23"
+clap = { version = "4.5.48", features = ["derive"] }

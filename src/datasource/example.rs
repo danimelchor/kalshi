@@ -1,6 +1,6 @@
-use bincode::{self, Decode, Encode};
 use async_trait::async_trait;
-use serde::{Serialize, Deserialize};
+use bincode::{self, Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 use crate::{datasource::datasource::DataSource, protocol::protocol::ServiceName};
 
@@ -17,8 +17,8 @@ pub struct ExampleComDataSource {
     client: reqwest::Client,
 }
 
-impl ExampleComDataSource {
-    pub fn new() -> Self {
+impl Default for ExampleComDataSource {
+    fn default() -> Self {
         Self {
             client: reqwest::Client::new(),
         }
@@ -35,7 +35,9 @@ impl DataSource<ExampleComData> for ExampleComDataSource {
         ServiceName::GovForecast
     }
 
-    async fn fetch_data(&mut self) -> Result<ExampleComData, Box<dyn std::error::Error + Send + Sync>> {
+    async fn fetch_data(
+        &mut self,
+    ) -> Result<ExampleComData, Box<dyn std::error::Error + Send + Sync>> {
         let response = self.client.get("http://example.com").send().await?;
         let status_code = response.status().as_u16();
         let content_length = response.content_length().map(|l| l as usize);

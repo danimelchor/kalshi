@@ -1,14 +1,21 @@
 use bincode::{self, Decode, Encode, encode_to_vec};
+use chrono::Utc;
+use futures::lock::Mutex;
 use futures::stream::{Stream, unfold};
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::{marker::PhantomData, path::Path};
 use strum_macros;
 use tokio::fs;
+use tokio::net::UnixListener;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
 };
 
-#[derive(strum_macros::Display)]
+use crate::protocol::datetime::SerializableDateTime;
+
+#[derive(strum_macros::Display, Hash, PartialEq, Eq)]
 #[strum(serialize_all = "snake_case")]
 pub enum ServiceName {
     GovForecast,
@@ -26,16 +33,22 @@ impl ServiceName {
 pub struct Event<T> {
     id: u32,
     message: T,
+    ts: SerializableDateTime,
 }
 
 impl<T> Event<T> {
     pub fn new(id: u32, message: T) -> Self {
-        Self { id, message }
+        Self {
+            id,
+            message,
+            ts: Utc::now().into(),
+        }
     }
 }
 
 pub struct ServicePublisher<T> {
-    stream: UnixStream,
+    clients: Arc<Mutex<Vec<UnixStream>>>,
+    service_name: ServiceName,
     _marker: PhantomData<T>,
 }
 
@@ -43,11 +56,32 @@ impl<T> ServicePublisher<T>
 where
     T: Encode,
 {
-    pub async fn new(name: ServiceName) -> tokio::io::Result<Self> {
-        let path = name.unix_path();
-        let stream = UnixStream::connect(path).await?;
+    pub async fn new(service_name: ServiceName) -> tokio::io::Result<Self> {
+        let path = service_name.unix_path();
+        if Path::new(&path).exists() {
+            fs::remove_file(&path).await?;
+        }
+
+        let listener = UnixListener::bind(&path)?;
+        let clients = Arc::new(Mutex::new(Vec::new()));
+
+        let clients_clone = clients.clone();
+        tokio::spawn(async move {
+            loop {
+                match listener.accept().await {
+                    Ok((stream, _addr)) => {
+                        clients_clone.lock().await.push(stream);
+                    }
+                    Err(e) => {
+                        eprint!("Failed to accept subscriber connection: {}", e)
+                    }
+                }
+            }
+        });
+
         Ok(Self {
-            stream,
+            clients,
+            service_name,
             _marker: PhantomData,
         })
     }
@@ -55,61 +89,130 @@ where
     pub async fn publish(&mut self, event: &Event<T>) -> tokio::io::Result<()> {
         let buf = encode_to_vec(event, bincode::config::standard()).unwrap();
         let len = buf.len() as u32;
-        self.stream.write_all(&len.to_le_bytes()).await?;
-        self.stream.write_all(&buf).await?;
+
+        let mut clients = self.clients.lock().await;
+        let mut failed_clients = Vec::new();
+
+        for (index, client) in clients.iter_mut().enumerate() {
+            let mut success = true;
+
+            if client.write_all(&len.to_le_bytes()).await.is_err()
+                || client.write_all(&buf).await.is_err()
+            {
+                success = false;
+            }
+
+            if !success {
+                failed_clients.push(index);
+            }
+        }
+
+        // Remove failed clients (in reverse order to maintain indices)
+        for &index in failed_clients.iter().rev() {
+            clients.remove(index);
+            println!("Removed disconnected subscriber from {}", self.service_name);
+        }
+
         Ok(())
     }
 }
 
 pub struct ServiceSubscriber<T> {
-    stream: UnixStream,
+    subscriptions: HashMap<ServiceName, UnixStream>,
     _marker: PhantomData<T>,
 }
 
 impl<T> ServiceSubscriber<T>
 where
-    T: Decode<()> + Send + 'static,
+    T: Decode<()> + Send + Sync + 'static,
 {
-    pub async fn new(name: ServiceName) -> tokio::io::Result<Self> {
-        let path = name.unix_path();
-        if Path::new(&path).exists() {
-            fs::remove_file(&path).await?;
-        }
-        let stream = UnixStream::connect(path).await?;
-        Ok(Self {
-            stream,
+    pub async fn new() -> Self {
+        Self {
+            subscriptions: HashMap::new(),
             _marker: PhantomData,
-        })
+        }
     }
 
-    pub fn subscribe(
+    pub async fn subscribe(&mut self, service: ServiceName) -> tokio::io::Result<()> {
+        let path = service.unix_path();
+
+        // Retry connection with exponential backoff
+        let mut retry_count = 0;
+        let max_retries = 5;
+
+        loop {
+            match UnixStream::connect(&path).await {
+                Ok(stream) => {
+                    println!("Subscribed to {}", service);
+                    self.subscriptions.insert(service, stream);
+                    return Ok(());
+                }
+                Err(_) if retry_count < max_retries => {
+                    retry_count += 1;
+                    let delay = std::time::Duration::from_millis(100 * (1 << retry_count));
+                    println!(
+                        "Connection to {} failed (attempt {}), retrying in {:?}...",
+                        service, retry_count, delay
+                    );
+                    tokio::time::sleep(delay).await;
+                }
+                Err(e) => {
+                    return Err(tokio::io::Error::new(
+                        tokio::io::ErrorKind::NotFound,
+                        format!(
+                            "Failed to connect to {} after {} attempts. Error: {}",
+                            service, max_retries, e
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+
+    pub fn listen(
         self,
-    ) -> impl Stream<Item = Result<T, Box<dyn std::error::Error + Send + Sync>>> {
-        unfold(self.stream, |mut stream| async move {
-            // Read message length
-            let mut len_buf = [0u8; 4];
-            if let Err(e) = stream.read_exact(&mut len_buf).await {
-                eprintln!("Failed to read length: {}", e);
-                return None;
-            }
+    ) -> impl Stream<Item = Result<Event<T>, Box<dyn std::error::Error + Send + Sync>>> {
+        let streams = self
+            .subscriptions
+            .into_iter()
+            .map(|(service_name, stream)| {
+                let service_name_str = service_name.to_string();
+                unfold(stream, move |mut stream| {
+                    let service_name_clone = service_name_str.clone();
+                    Box::pin(async move {
+                        // Read message length
+                        let mut len_buf = [0u8; 4];
+                        if let Err(e) = stream.read_exact(&mut len_buf).await {
+                            eprintln!("Lost connection to {}: {}", service_name_clone, e);
+                            return None;
+                        }
 
-            let len = u32::from_le_bytes(len_buf) as usize;
+                        let len = u32::from_le_bytes(len_buf) as usize;
 
-            // Read message data
-            let mut buf = vec![0u8; len];
-            if let Err(e) = stream.read_exact(&mut buf).await {
-                eprintln!("Failed to read data: {}", e);
-                return None;
-            }
+                        // Read message data
+                        let mut buf = vec![0u8; len];
+                        if let Err(e) = stream.read_exact(&mut buf).await {
+                            eprintln!("Failed to read from {}: {}", service_name_clone, e);
+                            return None;
+                        }
 
-            // Decode the message
-            match bincode::decode_from_slice::<T, _>(&buf, bincode::config::standard()) {
-                Ok((event, _)) => Some((Ok(event), stream)),
-                Err(e) => Some((
-                    Err(Box::new(e) as Box<dyn std::error::Error + Send + Sync>),
-                    stream,
-                )),
-            }
-        })
+                        // Decode the message
+                        match bincode::decode_from_slice::<Event<T>, _>(
+                            &buf,
+                            bincode::config::standard(),
+                        ) {
+                            Ok((event, _)) => Some((Ok(event), stream)),
+                            Err(e) => Some((
+                                Err(Box::new(e) as Box<dyn std::error::Error + Send + Sync>),
+                                stream,
+                            )),
+                        }
+                    })
+                })
+            })
+            .collect::<Vec<_>>();
+
+        // Merge all streams into one
+        futures::stream::select_all(streams)
     }
 }

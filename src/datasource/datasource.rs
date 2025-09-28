@@ -43,14 +43,15 @@ where
         let mut publisher = ServicePublisher::new(self.service_name()).await?;
         let mut event_id = 0u32;
 
+        // Wait for unix socket
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
         loop {
             match self.fetch_data().await {
                 Ok(data) => {
                     let event = Event::new(event_id, data);
                     if let Err(e) = publisher.publish(&event).await {
                         eprintln!("Failed to publish event for {}: {}", self.name(), e);
-                    } else {
-                        println!("Published event {} for {}", event_id, self.name());
                     }
                     event_id = event_id.wrapping_add(1);
                 }
