@@ -118,7 +118,8 @@ where
 }
 
 pub struct ServiceSubscriber<T> {
-    subscriptions: HashMap<ServiceName, UnixStream>,
+    subscription: UnixStream,
+    service: ServiceName,
     _marker: PhantomData<T>,
 }
 
@@ -126,14 +127,16 @@ impl<T> ServiceSubscriber<T>
 where
     T: Decode<()> + Send + Sync + 'static,
 {
-    pub async fn new() -> Self {
+    pub async fn new(service: ServiceName) -> tokio::io::Result<Self> {
+        let stream = ServiceSubscriber::subscribe(service).await?;
         Self {
-            subscriptions: HashMap::new(),
+            service,
+            subscription: stream,
             _marker: PhantomData,
         }
     }
 
-    pub async fn subscribe(&mut self, service: ServiceName) -> tokio::io::Result<()> {
+    pub async fn subscribe(service: ServiceName) -> tokio::io::Result<()> {
         let path = service.unix_path();
 
         // Retry connection with exponential backoff
@@ -144,8 +147,7 @@ where
             match UnixStream::connect(&path).await {
                 Ok(stream) => {
                     println!("Subscribed to {}", service);
-                    self.subscriptions.insert(service, stream);
-                    return Ok(());
+                    return Ok(stream);
                 }
                 Err(_) if retry_count < max_retries => {
                     retry_count += 1;
@@ -172,47 +174,35 @@ where
     pub fn listen(
         self,
     ) -> impl Stream<Item = Result<Event<T>, Box<dyn std::error::Error + Send + Sync>>> {
-        let streams = self
-            .subscriptions
-            .into_iter()
-            .map(|(service_name, stream)| {
-                let service_name_str = service_name.to_string();
-                unfold(stream, move |mut stream| {
-                    let service_name_clone = service_name_str.clone();
-                    Box::pin(async move {
-                        // Read message length
-                        let mut len_buf = [0u8; 4];
-                        if let Err(e) = stream.read_exact(&mut len_buf).await {
-                            eprintln!("Lost connection to {}: {}", service_name_clone, e);
-                            return None;
-                        }
+        let service_name_str = self.service.to_string();
+        unfold(self.subscription, move |mut stream| {
+            let service_name_clone = service_name_str.clone();
+            Box::pin(async move {
+                // Read message length
+                let mut len_buf = [0u8; 4];
+                if let Err(e) = stream.read_exact(&mut len_buf).await {
+                    eprintln!("Lost connection to {}: {}", service_name_clone, e);
+                    return None;
+                }
 
-                        let len = u32::from_le_bytes(len_buf) as usize;
+                let len = u32::from_le_bytes(len_buf) as usize;
 
-                        // Read message data
-                        let mut buf = vec![0u8; len];
-                        if let Err(e) = stream.read_exact(&mut buf).await {
-                            eprintln!("Failed to read from {}: {}", service_name_clone, e);
-                            return None;
-                        }
+                // Read message data
+                let mut buf = vec![0u8; len];
+                if let Err(e) = stream.read_exact(&mut buf).await {
+                    eprintln!("Failed to read from {}: {}", service_name_clone, e);
+                    return None;
+                }
 
-                        // Decode the message
-                        match bincode::decode_from_slice::<Event<T>, _>(
-                            &buf,
-                            bincode::config::standard(),
-                        ) {
-                            Ok((event, _)) => Some((Ok(event), stream)),
-                            Err(e) => Some((
-                                Err(Box::new(e) as Box<dyn std::error::Error + Send + Sync>),
-                                stream,
-                            )),
-                        }
-                    })
-                })
+                // Decode the message
+                match bincode::decode_from_slice::<Event<T>, _>(&buf, bincode::config::standard()) {
+                    Ok((event, _)) => Some((Ok(event), stream)),
+                    Err(e) => Some((
+                        Err(Box::new(e) as Box<dyn std::error::Error + Send + Sync>),
+                        stream,
+                    )),
+                }
             })
-            .collect::<Vec<_>>();
-
-        // Merge all streams into one
-        futures::stream::select_all(streams)
+        });
     }
 }
