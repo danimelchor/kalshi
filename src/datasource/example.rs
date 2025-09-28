@@ -27,11 +27,11 @@ impl Default for ExampleComDataSource {
 
 #[async_trait]
 impl DataSource<ExampleComData> for ExampleComDataSource {
-    fn name(&self) -> &str {
-        "Example.com Fetcher"
+    fn name() -> String {
+        "Example.com Fetcher".into()
     }
 
-    fn service_name(&self) -> ServiceName {
+    fn service_name() -> ServiceName {
         ServiceName::GovForecast
     }
 

@@ -1,8 +1,8 @@
 use bincode::{self, Decode, Encode, encode_to_vec};
 use chrono::Utc;
 use futures::lock::Mutex;
-use futures::stream::{Stream, unfold};
-use std::collections::HashMap;
+use futures::stream::{SelectAll, Stream, StreamExt, unfold};
+use std::pin::Pin;
 use std::sync::Arc;
 use std::{marker::PhantomData, path::Path};
 use strum_macros;
@@ -128,15 +128,15 @@ where
     T: Decode<()> + Send + Sync + 'static,
 {
     pub async fn new(service: ServiceName) -> tokio::io::Result<Self> {
-        let stream = ServiceSubscriber::subscribe(service).await?;
-        Self {
+        let stream = ServiceSubscriber::<T>::subscribe(&service).await?;
+        Ok(Self {
             service,
             subscription: stream,
             _marker: PhantomData,
-        }
+        })
     }
 
-    pub async fn subscribe(service: ServiceName) -> tokio::io::Result<()> {
+    pub async fn subscribe(service: &ServiceName) -> tokio::io::Result<UnixStream> {
         let path = service.unix_path();
 
         // Retry connection with exponential backoff
@@ -203,6 +203,48 @@ where
                     )),
                 }
             })
-        });
+        })
+    }
+}
+
+pub struct MultiServiceSubscriber<E> {
+    streams: SelectAll<Pin<Box<dyn Stream<Item = E> + Send>>>,
+}
+
+impl<E> Default for MultiServiceSubscriber<E> {
+    fn default() -> Self {
+        Self {
+            streams: SelectAll::new(),
+        }
+    }
+}
+
+impl<E> MultiServiceSubscriber<E> {
+    pub async fn add_subscription<T>(&mut self, service: ServiceName) -> tokio::io::Result<()>
+    where
+        T: Decode<()> + Send + Sync + 'static,
+        Event<T>: Into<E>,
+    {
+        let subscriber = ServiceSubscriber::<T>::new(service).await?;
+        let stream = Box::pin(subscriber.listen().filter_map(|result| async move {
+            match result {
+                Ok(event) => Some(event.into()),
+                Err(e) => {
+                    eprintln!("Stream error: {}", e);
+                    None
+                }
+            }
+        }));
+        self.streams.push(stream);
+        Ok(())
+    }
+
+    pub async fn listen_all<F>(mut self, mut handler: F)
+    where
+        F: FnMut(E),
+    {
+        while let Some(event) = self.streams.next().await {
+            handler(event);
+        }
     }
 }

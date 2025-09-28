@@ -34,13 +34,13 @@ pub trait DataSource<T>
 where
     T: Encode + Send + Sync,
 {
-    fn name(&self) -> &str;
-    fn service_name(&self) -> ServiceName;
+    fn name() -> String;
+    fn service_name() -> ServiceName;
 
     async fn fetch_data(&mut self) -> Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
     async fn run(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut publisher = ServicePublisher::new(self.service_name()).await?;
+        let mut publisher = ServicePublisher::new(Self::service_name()).await?;
         let mut event_id = 0u32;
 
         // Wait for unix socket
@@ -51,12 +51,12 @@ where
                 Ok(data) => {
                     let event = Event::new(event_id, data);
                     if let Err(e) = publisher.publish(&event).await {
-                        eprintln!("Failed to publish event for {}: {}", self.name(), e);
+                        eprintln!("Failed to publish event for {}: {}", Self::name(), e);
                     }
                     event_id = event_id.wrapping_add(1);
                 }
                 Err(e) => {
-                    eprintln!("Failed to fetch data for {}: {}", self.name(), e);
+                    eprintln!("Failed to fetch data for {}: {}", Self::name(), e);
                 }
             }
 
