@@ -2,13 +2,11 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use kalshi_bot::{
     datasource::{
-        DataSourceCommand, daily_weather_observations::DailyWeatherObservationDataSource,
-        datasource::DataSource, hourly_weather_observations::HourlyWeatherObservationDataSource,
-        run_data_source, weather_forecast::WeatherForecastDataSource,
+        DataSourceCommand,
+        run_data_source,
     },
     strategy::{StrategyCommand, run_strategy},
 };
-use weather::{forecast::model::Model, station::Station};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
