@@ -1,12 +1,6 @@
 use async_trait::async_trait;
 
-use crate::{
-    datasource::{
-        datasource::DataSource,
-        weather_forecast::{WeatherForecast, WeatherForecastDataSource},
-    },
-    strategy::strategy::Strategy,
-};
+use crate::{datasource::weather_forecast::WeatherForecast, strategy::strategy::Strategy};
 use protocol::protocol::{Event, MultiServiceSubscriber, ServiceName};
 
 #[derive(Debug)]
@@ -21,18 +15,10 @@ impl From<Event<WeatherForecast>> for WeatherEvents {
 }
 
 #[derive(Default)]
-pub struct ExampleStrategy();
+pub struct ForecastNotifier();
 
 #[async_trait]
-impl Strategy<WeatherEvents> for ExampleStrategy {
-    fn name() -> String {
-        "example".into()
-    }
-
-    fn datasources() -> Vec<ServiceName> {
-        vec![WeatherForecastDataSource::service_name()]
-    }
-
+impl Strategy<WeatherEvents> for ForecastNotifier {
     async fn run(&mut self) -> tokio::io::Result<()> {
         let mut client = MultiServiceSubscriber::<WeatherEvents>::default();
         client
@@ -41,7 +27,9 @@ impl Strategy<WeatherEvents> for ExampleStrategy {
 
         client
             .listen_all(|event| match event {
-                WeatherEvents::WeatherForecast(data) => println!("Example.com data: {:?}", data),
+                WeatherEvents::WeatherForecast(data) => {
+                    println!("Weather forecast data: {:?}", data)
+                }
             })
             .await;
 

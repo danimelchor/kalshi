@@ -1,7 +1,14 @@
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use kalshi_bot::{
-    datasource::{datasource::DataSource, weather_forecast::WeatherForecastDataSource},
-    strategy::{forecast_notifier::ExampleStrategy, strategy::Strategy},
+    datasource::{
+        datasource::DataSource, hourly_weather_observations::HourlyWeatherObservationDataSource,
+        weather_forecast::WeatherForecastDataSource,
+    },
+    strategy::{
+        dump_if_temp_higher::DumpIfTempHigher, forecast_notifier::ForecastNotifier,
+        strategy::Strategy,
+    },
 };
 use weather::{forecast::model::Model, station::Station};
 
@@ -14,22 +21,34 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Publisher,
-    Client,
+    WeatherForecastPublisher,
+    NwsObservationPublisher,
+    ForecastNotifier,
+    DumpIfTempHigher,
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Publisher => {
+        Commands::WeatherForecastPublisher => {
             let mut source = WeatherForecastDataSource::new(Station::KNYC, Model::HRRR);
             source.run().await.unwrap()
         }
-        Commands::Client => {
-            let mut strategy = ExampleStrategy::default();
+        Commands::NwsObservationPublisher => {
+            let mut source = HourlyWeatherObservationDataSource::new(Station::KNYC).await?;
+            source.run().await.unwrap()
+        }
+        Commands::ForecastNotifier => {
+            let mut strategy = ForecastNotifier::default();
+            strategy.run().await.unwrap()
+        }
+        Commands::DumpIfTempHigher => {
+            let mut strategy = DumpIfTempHigher::default();
             strategy.run().await.unwrap()
         }
     }
+
+    Ok(())
 }

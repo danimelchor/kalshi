@@ -1,3 +1,3 @@
 pub mod datasource;
-pub mod example;
+pub mod hourly_weather_observations;
 pub mod weather_forecast;

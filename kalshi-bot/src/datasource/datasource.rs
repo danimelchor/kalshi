@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use chrono::Utc;
 
+use anyhow::Result;
 use protocol::{
     datetime::SerializableDateTime,
     protocol::{Event, ServiceName, ServicePublisher},
@@ -37,7 +38,7 @@ where
     fn name() -> String;
     fn service_name() -> ServiceName;
 
-    async fn fetch_data(&mut self) -> Result<T, Box<dyn std::error::Error + Send + Sync>>;
+    async fn fetch_data(&mut self) -> Result<T>;
 
     async fn run(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut publisher = ServicePublisher::new(Self::service_name()).await?;

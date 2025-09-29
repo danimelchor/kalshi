@@ -19,8 +19,7 @@ use crate::datetime::SerializableDateTime;
 #[strum(serialize_all = "snake_case")]
 pub enum ServiceName {
     WeatherForecast,
-    GovForecast,
-    OpenMeteoForecast,
+    HourlyWeatherObservations,
 }
 
 impl ServiceName {

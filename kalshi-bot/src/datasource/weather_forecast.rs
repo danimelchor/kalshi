@@ -10,6 +10,8 @@ use weather::{
 use crate::datasource::datasource::DataSource;
 use protocol::{datetime::SerializableDateTime, protocol::ServiceName};
 
+use anyhow::Result;
+
 // Example.com data structure
 #[derive(Encode, Decode, Debug, Clone)]
 pub struct WeatherForecast {
@@ -39,9 +41,7 @@ impl DataSource<WeatherForecast> for WeatherForecastDataSource {
         ServiceName::WeatherForecast
     }
 
-    async fn fetch_data(
-        &mut self,
-    ) -> Result<WeatherForecast, Box<dyn std::error::Error + Send + Sync>> {
+    async fn fetch_data(&mut self) -> Result<WeatherForecast> {
         let ts = Utc::now() - TimeDelta::hours(2);
         let forecast = parse_report(&self.station, &self.model, ts, 0).await?;
 

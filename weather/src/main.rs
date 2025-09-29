@@ -1,3 +1,4 @@
+use anyhow::Result;
 use chrono::{TimeDelta, Utc};
 use clap::{Parser, Subcommand};
 use weather::{
@@ -32,7 +33,7 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Commands::ModelForecast {

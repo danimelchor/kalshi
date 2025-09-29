@@ -1,10 +1,10 @@
+use anyhow::Result;
 use bincode::{Decode, Encode};
 use chrono::Datelike;
 use fantoccini::error::CmdError;
 use fantoccini::{Client, ClientBuilder, Locator};
 use protocol::datetime::SerializableDateTime;
 use std::collections::HashMap;
-use std::error::Error;
 
 use crate::station::Station;
 use crate::temperature::Temperature;
@@ -112,7 +112,7 @@ impl NWSHourlyObservationsScraper {
         format!("{}?{}", self.base_url, query)
     }
 
-    pub async fn scrape(&mut self) -> Result<NWSHourlyTemperatures, Box<dyn Error>> {
+    pub async fn scrape(&mut self) -> Result<NWSHourlyTemperatures> {
         self.client.goto(&self.url()).await?;
 
         let table = self
