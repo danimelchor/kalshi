@@ -1,4 +1,6 @@
-#[derive(Debug)]
+use bincode::{self, Decode, Encode};
+
+#[derive(Encode, Decode, Debug, Clone)]
 pub enum Temperature {
     Celsius(f32),
     Fahrenheit(f32),

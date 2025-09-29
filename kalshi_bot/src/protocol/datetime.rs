@@ -1,7 +1,7 @@
 use bincode::{Decode, Encode};
 use chrono::{DateTime, TimeZone, Utc};
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, Clone)]
 pub struct SerializableDateTime(i64);
 
 impl From<DateTime<Utc>> for SerializableDateTime {

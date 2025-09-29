@@ -994,6 +994,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "tokio",
+ "weather",
 ]
 
 [[package]]
@@ -2237,6 +2238,7 @@ name = "weather"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "bytes",
  "chrono",
  "clap",

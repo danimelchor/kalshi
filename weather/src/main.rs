@@ -1,7 +1,7 @@
 use clap::Parser;
 use weather::{
     model::Model,
-    parser::{ComputeOptions, parse_report},
+    parser::{ComputeOptions, parse_report_with_opts},
     station::Station,
 };
 
@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let station = Station::KNYC;
     let model = Model::HRRR;
     let compute_opts = cli.compute_opts.unwrap_or(ComputeOptions::Precomputed);
-    let forecast = parse_report(&station, &model, 0, compute_opts).await?;
+    let forecast = parse_report_with_opts(&station, &model, 0, compute_opts).await?;
     print!("{:?}", forecast);
     Ok(())
 }

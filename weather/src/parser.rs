@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use bytes::Bytes;
-use chrono::{Datelike, Utc};
+use chrono::{Date, DateTime, Datelike, TimeDelta, Timelike, Utc};
 use clap::ValueEnum;
 use grib::{Grib2, SeekableGrib2Reader, SubMessage};
 use reqwest::Client;
@@ -17,8 +17,9 @@ const METERS_ABOVE_GROUND: i32 = 2;
 
 #[derive(Debug)]
 pub struct WeatherForecast {
-    latlon: LatLon,
-    temperature: Temperature,
+    pub latlon: LatLon,
+    pub temperature: Temperature,
+    pub ts: DateTime<Utc>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -27,11 +28,9 @@ pub enum ComputeOptions {
     Precomputed,
 }
 
-fn get_url(lead_time: i8) -> String {
-    // TODO: FIX THIS
-    let now = Utc::now();
-    let date = format!("{:04}{:02}{:02}", now.year(), now.month(), now.day() - 1);
-    let hh = format!("{:02}", 22);
+fn get_url(ts: DateTime<Utc>, lead_time: i64) -> String {
+    let hh = format!("{:02}", ts.hour());
+    let date = format!("{:04}{:02}{:02}", ts.year(), ts.month(), ts.day());
     format!("{BASE}/hrrr.{date}/conus/hrrr.t{hh}z.{FORECAST_TYPE}{lead_time:0>2}.grib2")
 }
 
@@ -71,7 +70,7 @@ fn temp_closest_to_station<'a>(
     model: &Model,
     submessage: SubMessage<'a, SeekableGrib2Reader<Cursor<&'a Bytes>>>,
     compute_opts: ComputeOptions,
-) -> Result<WeatherForecast> {
+) -> Result<(LatLon, Temperature)> {
     let latlon = submessage.latlons()?;
     let ijs = submessage.ij()?;
     let grid_shape = submessage.grid_shape()?;
@@ -116,20 +115,18 @@ fn temp_closest_to_station<'a>(
         }
     };
 
-    Ok(WeatherForecast {
-        latlon: LatLon::new(lat, lon),
-        temperature: Temperature::Kelvin(temp_kelvin),
-    })
+    Ok((LatLon::new(lat, lon), Temperature::Kelvin(temp_kelvin)))
 }
 
-pub async fn parse_report(
+pub async fn parse_report_with_opts(
     station: &Station,
     model: &Model,
-    lead_time: i8,
+    ts: DateTime<Utc>,
+    lead_time: i64,
     compute_opts: ComputeOptions,
 ) -> Result<WeatherForecast> {
     let client = Client::new();
-    let url = get_url(lead_time);
+    let url = get_url(ts, lead_time);
     let response = client.get(url).send().await?;
     if !response.status().is_success() {
         panic!("Failed to fetch: {}", response.status());
@@ -140,5 +137,19 @@ pub async fn parse_report(
 
     let grib2 = grib::from_reader(cursor)?;
     let submessage = find_message(&grib2)?;
-    temp_closest_to_station(station, model, submessage, compute_opts)
+    let (latlon, temperature) = temp_closest_to_station(station, model, submessage, compute_opts)?;
+    Ok(WeatherForecast {
+        latlon,
+        temperature,
+        ts: ts + TimeDelta::hours(lead_time),
+    })
+}
+
+pub async fn parse_report(
+    station: &Station,
+    model: &Model,
+    ts: DateTime<Utc>,
+    lead_time: i64,
+) -> Result<WeatherForecast> {
+    parse_report_with_opts(station, model, ts, lead_time, ComputeOptions::Precomputed).await
 }

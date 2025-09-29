@@ -18,6 +18,7 @@ use crate::protocol::datetime::SerializableDateTime;
 #[derive(strum_macros::Display, Hash, PartialEq, Eq)]
 #[strum(serialize_all = "snake_case")]
 pub enum ServiceName {
+    WeatherForecast,
     GovForecast,
     OpenMeteoForecast,
 }
