@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand};
-use kalshi::{
-    datasource::{datasource::DataSource, example::ExampleComDataSource},
+use kalshi_bot::{
+    datasource::{datasource::DataSource, weather_forecast::WeatherForecastDataSource},
     strategy::{example::ExampleStrategy, strategy::Strategy},
 };
+use weather::{model::Model, station::Station};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -23,7 +24,7 @@ async fn main() {
 
     match &cli.command {
         Commands::Publisher => {
-            let mut source = ExampleComDataSource::default();
+            let mut source = WeatherForecastDataSource::new(Station::KNYC, Model::HRRR);
             source.run().await.unwrap()
         }
         Commands::Client => {

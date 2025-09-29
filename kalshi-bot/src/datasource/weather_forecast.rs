@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use bincode::{self, Decode, Encode};
-use chrono::Utc;
+use chrono::{TimeDelta, Utc};
 use weather::{model::Model, parser::parse_report, station::Station, temperature::Temperature};
 
 use crate::{
@@ -40,7 +40,7 @@ impl DataSource<WeatherForecast> for WeatherForecastDataSource {
     async fn fetch_data(
         &mut self,
     ) -> Result<WeatherForecast, Box<dyn std::error::Error + Send + Sync>> {
-        let ts = Utc::now();
+        let ts = Utc::now() - TimeDelta::hours(2);
         let forecast = parse_report(&self.station, &self.model, ts, 0).await?;
 
         Ok(WeatherForecast {
