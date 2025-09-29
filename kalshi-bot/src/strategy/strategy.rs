@@ -1,5 +1,5 @@
-use crate::protocol::protocol::ServiceName;
 use async_trait::async_trait;
+use protocol::protocol::ServiceName;
 
 #[async_trait]
 pub trait Strategy<T> {

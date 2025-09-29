@@ -13,7 +13,7 @@ use tokio::{
     net::UnixStream,
 };
 
-use crate::protocol::datetime::SerializableDateTime;
+use crate::datetime::SerializableDateTime;
 
 #[derive(strum_macros::Display, Hash, PartialEq, Eq)]
 #[strum(serialize_all = "snake_case")]

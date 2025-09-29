@@ -1,9 +1,9 @@
 use clap::{Parser, Subcommand};
 use kalshi_bot::{
     datasource::{datasource::DataSource, weather_forecast::WeatherForecastDataSource},
-    strategy::{example::ExampleStrategy, strategy::Strategy},
+    strategy::{forecast_notifier::ExampleStrategy, strategy::Strategy},
 };
-use weather::{model::Model, station::Station};
+use weather::{forecast::model::Model, station::Station};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

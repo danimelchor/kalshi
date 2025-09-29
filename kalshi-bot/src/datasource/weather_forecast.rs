@@ -1,12 +1,14 @@
 use async_trait::async_trait;
 use bincode::{self, Decode, Encode};
 use chrono::{TimeDelta, Utc};
-use weather::{model::Model, parser::parse_report, station::Station, temperature::Temperature};
-
-use crate::{
-    datasource::datasource::DataSource,
-    protocol::{datetime::SerializableDateTime, protocol::ServiceName},
+use weather::{
+    forecast::{model::Model, parser::parse_report},
+    station::Station,
+    temperature::Temperature,
 };
+
+use crate::datasource::datasource::DataSource;
+use protocol::{datetime::SerializableDateTime, protocol::ServiceName};
 
 // Example.com data structure
 #[derive(Encode, Decode, Debug, Clone)]

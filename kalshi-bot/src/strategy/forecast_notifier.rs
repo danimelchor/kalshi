@@ -5,9 +5,9 @@ use crate::{
         datasource::DataSource,
         weather_forecast::{WeatherForecast, WeatherForecastDataSource},
     },
-    protocol::protocol::{Event, MultiServiceSubscriber, ServiceName},
     strategy::strategy::Strategy,
 };
+use protocol::protocol::{Event, MultiServiceSubscriber, ServiceName};
 
 #[derive(Debug)]
 pub enum WeatherEvents {

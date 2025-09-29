@@ -6,7 +6,7 @@ use grib::{Grib2, SeekableGrib2Reader, SubMessage};
 use reqwest::Client;
 use std::io::Cursor;
 
-use crate::{coords::LatLon, model::Model, station::Station, temperature::Temperature};
+use crate::{forecast::model::Model, station::Station, temperature::Temperature};
 
 static BASE: &str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod";
 static FORECAST_TYPE: &str = "wrfsfcf";
@@ -17,7 +17,6 @@ const METERS_ABOVE_GROUND: i32 = 2;
 
 #[derive(Debug)]
 pub struct WeatherForecast {
-    pub latlon: LatLon,
     pub temperature: Temperature,
     pub ts: DateTime<Utc>,
 }
@@ -70,16 +69,16 @@ fn temp_closest_to_station<'a>(
     model: &Model,
     submessage: SubMessage<'a, SeekableGrib2Reader<Cursor<&'a Bytes>>>,
     compute_opts: ComputeOptions,
-) -> Result<(LatLon, Temperature)> {
+) -> Result<Temperature> {
     let latlon = submessage.latlons()?;
     let ijs = submessage.ij()?;
     let grid_shape = submessage.grid_shape()?;
     let decoder = grib::Grib2SubmessageDecoder::from(submessage)?;
-    let values = decoder.dispatch()?;
+    let mut values = decoder.dispatch()?;
 
     let target = station.latlon();
 
-    let ((lat, lon), temp_kelvin) = match compute_opts {
+    let temp_kelvin = match compute_opts {
         ComputeOptions::Compute => {
             let (idx, (lat, lon), (i, j), value) = latlon
                 .zip(ijs)
@@ -93,9 +92,11 @@ fn temp_closest_to_station<'a>(
                 })
                 .ok_or_else(|| anyhow!("No data points found in submessage"))?;
 
-            println!("{} {} at idx {}", i, j, idx);
+            println!("Idx: {}", idx);
+            println!("i,j: {} {}", i, j);
+            println!("Lat, lon: {} {}", lat, lon);
             println!("Grid size: {:?}", grid_shape);
-            ((lat, lon), value)
+            value
         }
         ComputeOptions::Precomputed => {
             let ((i, j), expected_grid_shape) = model.computed_grid_location_and_info(station);
@@ -108,14 +109,13 @@ fn temp_closest_to_station<'a>(
             }
 
             let idx = grid_shape.0 * j + i;
-            latlon
-                .zip(values)
+            values
                 .nth(idx)
                 .ok_or_else(|| anyhow!("Index out of bounds for model grid"))?
         }
     };
 
-    Ok((LatLon::new(lat, lon), Temperature::Kelvin(temp_kelvin)))
+    Ok(Temperature::Kelvin(temp_kelvin))
 }
 
 pub async fn parse_report_with_opts(
@@ -137,9 +137,8 @@ pub async fn parse_report_with_opts(
 
     let grib2 = grib::from_reader(cursor)?;
     let submessage = find_message(&grib2)?;
-    let (latlon, temperature) = temp_closest_to_station(station, model, submessage, compute_opts)?;
+    let temperature = temp_closest_to_station(station, model, submessage, compute_opts)?;
     Ok(WeatherForecast {
-        latlon,
         temperature,
         ts: ts + TimeDelta::hours(lead_time),
     })

@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use bincode::{self, Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-use crate::{datasource::datasource::DataSource, protocol::protocol::ServiceName};
+use crate::datasource::datasource::DataSource;
+use protocol::protocol::ServiceName;
 
 // Example.com data structure
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]

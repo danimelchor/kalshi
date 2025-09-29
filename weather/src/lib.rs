@@ -1,5 +1,5 @@
 pub mod coords;
-pub mod model;
-pub mod parser;
+pub mod forecast;
+pub mod observations;
 pub mod station;
 pub mod temperature;

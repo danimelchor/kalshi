@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use chrono::Utc;
 
-use crate::protocol::{
+use protocol::{
     datetime::SerializableDateTime,
     protocol::{Event, ServiceName, ServicePublisher},
 };
