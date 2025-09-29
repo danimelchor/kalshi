@@ -2,14 +2,11 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use kalshi_bot::{
     datasource::{
-        daily_weather_observations::DailyWeatherObservationDataSource, datasource::DataSource,
-        hourly_weather_observations::HourlyWeatherObservationDataSource,
-        weather_forecast::WeatherForecastDataSource,
+        DataSourceCommand, daily_weather_observations::DailyWeatherObservationDataSource,
+        datasource::DataSource, hourly_weather_observations::HourlyWeatherObservationDataSource,
+        run_data_source, weather_forecast::WeatherForecastDataSource,
     },
-    strategy::{
-        dump_if_temp_higher::DumpIfTempHigher, forecast_notifier::ForecastNotifier,
-        strategy::Strategy,
-    },
+    strategy::{StrategyCommand, run_strategy},
 };
 use weather::{forecast::model::Model, station::Station};
 
@@ -22,11 +19,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    WeatherForecastPublisher,
-    NwsDailyObservationPublisher,
-    NwsHourlyObservationPublisher,
-    ForecastNotifier,
-    DumpIfTempHigher,
+    DataSource(DataSourceCommand),
+    Strategy(StrategyCommand),
 }
 
 #[tokio::main]
@@ -34,26 +28,8 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::WeatherForecastPublisher => {
-            let mut source = WeatherForecastDataSource::new(Station::KNYC, Model::HRRR);
-            source.run().await.unwrap()
-        }
-        Commands::NwsHourlyObservationPublisher => {
-            let mut source = HourlyWeatherObservationDataSource::new(Station::KNYC).await?;
-            source.run().await.unwrap()
-        }
-        Commands::NwsDailyObservationPublisher => {
-            let mut source = DailyWeatherObservationDataSource::new(Station::KNYC);
-            source.run().await.unwrap()
-        }
-        Commands::ForecastNotifier => {
-            let mut strategy = ForecastNotifier::default();
-            strategy.run().await.unwrap()
-        }
-        Commands::DumpIfTempHigher => {
-            let mut strategy = DumpIfTempHigher::default();
-            strategy.run().await.unwrap()
-        }
+        Commands::DataSource(subcommand) => run_data_source(subcommand).await?,
+        Commands::Strategy(subcommand) => run_strategy(subcommand).await?,
     }
 
     Ok(())
