@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use bytes::Bytes;
-use chrono::{Date, DateTime, Datelike, TimeDelta, Timelike, Utc};
+use chrono::{DateTime, Datelike, TimeDelta, Timelike, Utc};
 use clap::ValueEnum;
 use grib::{Grib2, SeekableGrib2Reader, SubMessage};
 use reqwest::Client;
