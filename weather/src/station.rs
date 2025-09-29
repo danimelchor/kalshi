@@ -21,4 +21,15 @@ impl Station {
             Station::KNYC => Eastern,
         }
     }
+
+    pub fn area_code(&self) -> &'static str {
+        match self {
+            Station::KNYC => "NWS",
+        }
+    }
+    pub fn city(&self) -> &'static str {
+        match self {
+            Station::KNYC => "NYC",
+        }
+    }
 }

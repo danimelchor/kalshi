@@ -2,7 +2,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use kalshi_bot::{
     datasource::{
-        datasource::DataSource, hourly_weather_observations::HourlyWeatherObservationDataSource,
+        daily_weather_observations::DailyWeatherObservationDataSource, datasource::DataSource,
+        hourly_weather_observations::HourlyWeatherObservationDataSource,
         weather_forecast::WeatherForecastDataSource,
     },
     strategy::{
@@ -22,7 +23,8 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     WeatherForecastPublisher,
-    NwsObservationPublisher,
+    NwsDailyObservationPublisher,
+    NwsHourlyObservationPublisher,
     ForecastNotifier,
     DumpIfTempHigher,
 }
@@ -36,8 +38,12 @@ async fn main() -> Result<()> {
             let mut source = WeatherForecastDataSource::new(Station::KNYC, Model::HRRR);
             source.run().await.unwrap()
         }
-        Commands::NwsObservationPublisher => {
+        Commands::NwsHourlyObservationPublisher => {
             let mut source = HourlyWeatherObservationDataSource::new(Station::KNYC).await?;
+            source.run().await.unwrap()
+        }
+        Commands::NwsDailyObservationPublisher => {
+            let mut source = DailyWeatherObservationDataSource::new(Station::KNYC);
             source.run().await.unwrap()
         }
         Commands::ForecastNotifier => {

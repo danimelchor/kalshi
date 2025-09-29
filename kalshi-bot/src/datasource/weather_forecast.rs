@@ -12,14 +12,12 @@ use protocol::{datetime::SerializableDateTime, protocol::ServiceName};
 
 use anyhow::Result;
 
-// Example.com data structure
 #[derive(Encode, Decode, Debug, Clone)]
 pub struct WeatherForecast {
     pub temperature: Temperature,
     pub ts: SerializableDateTime,
 }
 
-// Implementation that fetches example.com
 pub struct WeatherForecastDataSource {
     station: Station,
     model: Model,

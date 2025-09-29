@@ -20,6 +20,7 @@ use crate::datetime::SerializableDateTime;
 pub enum ServiceName {
     WeatherForecast,
     HourlyWeatherObservations,
+    DailyWeatherObservations,
 }
 
 impl ServiceName {

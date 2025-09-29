@@ -6,7 +6,7 @@ use weather::{
         model::Model,
         parser::{ComputeOptions, parse_report_with_opts},
     },
-    observations::hourly::NWSHourlyObservationsScraper,
+    observations::{daily::NWSDailyObservationFetcher, hourly::NWSHourlyObservationsScraper},
     station::Station,
 };
 
@@ -30,6 +30,7 @@ enum Commands {
         model: Model,
     },
     NWSHourlyObservation,
+    NWSDailyObservation,
 }
 
 #[tokio::main]
@@ -53,6 +54,11 @@ async fn main() -> Result<()> {
                 println!("{:?}", temp);
             }
             scraper.close().await?
+        }
+        Commands::NWSDailyObservation => {
+            let mut fetcher = NWSDailyObservationFetcher::new(cli.station, None);
+            let report = fetcher.fetch(1, false).await?;
+            println!("{:?}", report);
         }
     }
     Ok(())

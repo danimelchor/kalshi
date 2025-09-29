@@ -15,8 +15,8 @@ static PROD_BASE_URL: &str = "https://www.weather.gov/wrh/timeseries";
 pub struct NWSHourlyTemperature {
     pub datetime: SerializableDateTime,
     pub station: Station,
-    pub temp_f: Temperature,
-    pub six_hr_max_f: Option<Temperature>,
+    pub temperature: Temperature,
+    pub six_hr_max_temperature: Option<Temperature>,
 }
 
 #[derive(Debug, Encode, Decode)]
@@ -64,8 +64,8 @@ impl NWSHourlyTemperature {
         Ok(NWSHourlyTemperature {
             datetime: dt.into(),
             station: station.clone(),
-            temp_f: Temperature::Fahrenheit(temp_f),
-            six_hr_max_f,
+            temperature: Temperature::Fahrenheit(temp_f),
+            six_hr_max_temperature: six_hr_max_f,
         })
     }
 }

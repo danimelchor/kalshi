@@ -8,7 +8,6 @@ use weather::{
 use crate::datasource::datasource::DataSource;
 use protocol::protocol::ServiceName;
 
-// Implementation that fetches example.com
 pub struct HourlyWeatherObservationDataSource {
     scraper: NWSHourlyObservationsScraper,
 }
