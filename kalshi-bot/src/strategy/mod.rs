@@ -1,18 +1,14 @@
 pub mod dump_if_temp_higher;
 pub mod forecast_notifier;
+pub mod name;
 pub mod strategy;
 
 use crate::strategy::{
-    dump_if_temp_higher::DumpIfTempHigher, forecast_notifier::ForecastNotifier, strategy::Strategy,
+    dump_if_temp_higher::DumpIfTempHigher, forecast_notifier::ForecastNotifier, name::StrategyName,
+    strategy::Strategy,
 };
 use anyhow::Result;
-use clap::{Args, ValueEnum};
-
-#[derive(Debug, Clone, ValueEnum)]
-pub enum StrategyName {
-    ForecastNotifier,
-    DumpIfTempHigher,
-}
+use clap::Args;
 
 #[derive(Debug, Clone, Args)]
 pub struct StrategyCommand {

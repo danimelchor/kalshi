@@ -1,10 +1,11 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use bincode::{Decode, Encode};
 use chrono::Datelike;
 use fantoccini::error::CmdError;
 use fantoccini::{Client, ClientBuilder, Locator};
 use protocol::datetime::SerializableDateTime;
 use std::collections::HashMap;
+use std::time::Duration;
 
 use crate::station::Station;
 use crate::temperature::Temperature;
@@ -77,19 +78,35 @@ pub struct NWSHourlyObservationsScraper {
     headers_cache: Vec<String>,
 }
 
-impl NWSHourlyObservationsScraper {
-    pub async fn new(
-        station: Station,
-        base_url: Option<&str>,
-    ) -> Result<Self, fantoccini::error::CmdError> {
-        let base_url = base_url.unwrap_or(PROD_BASE_URL);
-        let client = ClientBuilder::native()
+async fn connect_with_retries() -> Result<Client> {
+    let delay = Duration::from_secs(1);
+    let max_retries = 4;
+
+    for attempt in 1..=max_retries {
+        match ClientBuilder::native()
             .capabilities(serde_json::from_str(
                 r#"{"moz:firefoxOptions": {"args": ["--headless"]}}"#,
             )?)
             .connect("http://localhost:4444")
             .await
-            .expect("failed to connect to WebDriver");
+        {
+            Ok(client) => return Ok(client),
+            Err(e) if attempt < max_retries => {
+                eprintln!("Attempt {attempt} failed: {e}. Retrying in {:?}...", delay);
+                tokio::time::sleep(delay).await;
+            }
+            Err(e) => return Err(anyhow!(e)),
+        }
+    }
+
+    unreachable!()
+}
+
+impl NWSHourlyObservationsScraper {
+    pub async fn new(station: Station, base_url: Option<&str>) -> Result<Self> {
+        let base_url = base_url.unwrap_or(PROD_BASE_URL);
+        let client = connect_with_retries().await?;
+        println!("Connected to geckoclient");
 
         Ok(Self {
             station,
