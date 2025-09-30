@@ -1,22 +1,17 @@
 use async_trait::async_trait;
-use bincode::{self, Decode, Encode};
 use chrono::{TimeDelta, Utc};
 use weather::{
-    forecast::{model::Model, parser::parse_report},
+    forecast::{
+        fetcher::{WeatherForecast, fetch},
+        model::Model,
+    },
     station::Station,
-    temperature::Temperature,
 };
 
 use crate::datasource::datasource::DataSource;
-use protocol::{datetime::SerializableDateTime, protocol::ServiceName};
+use protocol::protocol::ServiceName;
 
 use anyhow::Result;
-
-#[derive(Encode, Decode, Debug, Clone)]
-pub struct WeatherForecast {
-    pub temperature: Temperature,
-    pub ts: SerializableDateTime,
-}
 
 pub struct WeatherForecastDataSource {
     station: Station,
@@ -41,11 +36,6 @@ impl DataSource<WeatherForecast> for WeatherForecastDataSource {
 
     async fn fetch_data(&mut self) -> Result<WeatherForecast> {
         let ts = Utc::now() - TimeDelta::hours(2);
-        let forecast = parse_report(&self.station, &self.model, ts, 0).await?;
-
-        Ok(WeatherForecast {
-            temperature: forecast.temperature,
-            ts: forecast.ts.into(),
-        })
+        fetch(&self.station, &self.model, ts).await
     }
 }

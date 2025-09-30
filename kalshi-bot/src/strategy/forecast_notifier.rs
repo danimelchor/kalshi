@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use weather::forecast::fetcher::WeatherForecast;
 
-use crate::{datasource::weather_forecast::WeatherForecast, strategy::strategy::Strategy};
+use crate::strategy::strategy::Strategy;
 use protocol::protocol::{Event, MultiServiceSubscriber, ServiceName};
 
 #[derive(Debug)]

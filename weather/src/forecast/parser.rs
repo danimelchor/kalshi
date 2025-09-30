@@ -16,9 +16,9 @@ const SURFACE_TYPE: u8 = 103;
 const METERS_ABOVE_GROUND: i32 = 2;
 
 #[derive(Debug)]
-pub struct WeatherForecast {
+pub struct SingleWeatherForecast {
     pub temperature: Temperature,
-    pub ts: DateTime<Utc>,
+    pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -124,7 +124,7 @@ pub async fn parse_report_with_opts(
     ts: DateTime<Utc>,
     lead_time: i64,
     compute_opts: ComputeOptions,
-) -> Result<WeatherForecast> {
+) -> Result<SingleWeatherForecast> {
     let client = Client::new();
     let url = get_url(ts, lead_time);
     let response = client.get(url).send().await?;
@@ -138,9 +138,9 @@ pub async fn parse_report_with_opts(
     let grib2 = grib::from_reader(cursor)?;
     let submessage = find_message(&grib2)?;
     let temperature = temp_closest_to_station(station, model, submessage, compute_opts)?;
-    Ok(WeatherForecast {
+    Ok(SingleWeatherForecast {
         temperature,
-        ts: ts + TimeDelta::hours(lead_time),
+        timestamp: ts + TimeDelta::hours(lead_time),
     })
 }
 
@@ -149,6 +149,6 @@ pub async fn parse_report(
     model: &Model,
     ts: DateTime<Utc>,
     lead_time: i64,
-) -> Result<WeatherForecast> {
+) -> Result<SingleWeatherForecast> {
     parse_report_with_opts(station, model, ts, lead_time, ComputeOptions::Precomputed).await
 }
