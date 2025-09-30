@@ -33,8 +33,8 @@ impl ServiceName {
 #[derive(Debug, Decode, Encode)]
 pub struct Event<T> {
     id: u32,
-    message: T,
-    ts: SerializableDateTime,
+    pub message: T,
+    pub ts: SerializableDateTime,
 }
 
 impl<T> Event<T> {

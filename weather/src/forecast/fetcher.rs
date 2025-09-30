@@ -1,11 +1,11 @@
-use std::time::Instant;
-
 use anyhow::Result;
 use bincode::{Decode, Encode};
 use chrono::DateTime;
 use chrono_tz::Tz;
 use futures::future::join_all;
 use protocol::datetime::SerializableDateTime;
+use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
 use crate::{
     forecast::{
@@ -16,7 +16,7 @@ use crate::{
     temperature::Temperature,
 };
 
-#[derive(Encode, Decode, Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone, Serialize, Deserialize)]
 pub struct WeatherForecast {
     pub temperatures: Vec<Temperature>,
     pub timestamps: Vec<SerializableDateTime>,

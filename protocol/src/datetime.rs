@@ -2,8 +2,9 @@ use anyhow::{Result, anyhow};
 use bincode::{Decode, Encode};
 use chrono::{DateTime, TimeZone, Utc};
 use chrono_tz::{Etc::UTC, Tz};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Encode, Decode, Clone)]
+#[derive(Debug, Encode, Decode, Clone, Serialize, Deserialize)]
 pub struct SerializableDateTime {
     timestamp: i64,
     tz: String,

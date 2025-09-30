@@ -1,6 +1,7 @@
 use bincode::{self, Decode, Encode};
+use serde::{Deserialize, Serialize};
 
-#[derive(Encode, Decode, Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone, Serialize, Deserialize)]
 pub enum Temperature {
     Celsius(f32),
     Fahrenheit(f32),
