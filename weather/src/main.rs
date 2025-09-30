@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::{TimeDelta, Utc};
+use chrono_tz::Tz;
 use clap::{Parser, Subcommand};
 use weather::{
     forecast::{
@@ -42,7 +43,7 @@ async fn main() -> Result<()> {
             model,
         } => {
             let compute_opts = compute_opts.unwrap_or(ComputeOptions::Precomputed);
-            let ts = Utc::now() - TimeDelta::hours(3);
+            let ts = Utc::now().with_timezone(&Tz::America__New_York) - TimeDelta::hours(1);
             let forecast =
                 parse_report_with_opts(&cli.station, &model, ts, 0, compute_opts).await?;
             println!("{:?}", forecast);
