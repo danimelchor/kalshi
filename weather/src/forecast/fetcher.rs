@@ -1,6 +1,9 @@
+use std::time::Instant;
+
 use anyhow::Result;
 use bincode::{Decode, Encode};
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
+use chrono_tz::Tz;
 use futures::future::join_all;
 use protocol::datetime::SerializableDateTime;
 
@@ -19,7 +22,9 @@ pub struct WeatherForecast {
     pub timestamps: Vec<SerializableDateTime>,
 }
 
-pub async fn fetch(station: &Station, model: &Model, ts: DateTime<Utc>) -> Result<WeatherForecast> {
+pub async fn fetch(station: &Station, model: &Model, ts: DateTime<Tz>) -> Result<WeatherForecast> {
+    let start = Instant::now();
+
     let mut tasks = Vec::new();
     for lead_time in 1..=12 {
         let task = parse_report(station, model, ts, lead_time);
@@ -36,6 +41,9 @@ pub async fn fetch(station: &Station, model: &Model, ts: DateTime<Utc>) -> Resul
         temperatures.push(forecast.temperature);
         timestamps.push(forecast.timestamp.into());
     }
+
+    let duration = start.elapsed(); // Measure elapsed time
+    println!("Fetching full forecast took: {:?}", duration);
 
     Ok(WeatherForecast {
         timestamps,

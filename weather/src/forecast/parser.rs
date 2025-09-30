@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow};
 use bytes::Bytes;
-use chrono::{DateTime, Datelike, TimeDelta, Timelike, Utc};
+use chrono::{DateTime, Datelike, TimeDelta, Timelike};
+use chrono_tz::{Tz, UTC};
 use clap::ValueEnum;
 use grib::{Grib2, SeekableGrib2Reader, SubMessage};
 use reqwest::Client;
@@ -18,7 +19,7 @@ const METERS_ABOVE_GROUND: i32 = 2;
 #[derive(Debug)]
 pub struct SingleWeatherForecast {
     pub temperature: Temperature,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: DateTime<Tz>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -27,9 +28,10 @@ pub enum ComputeOptions {
     Precomputed,
 }
 
-fn get_url(ts: DateTime<Utc>, lead_time: i64) -> String {
-    let hh = format!("{:02}", ts.hour());
-    let date = format!("{:04}{:02}{:02}", ts.year(), ts.month(), ts.day());
+fn get_url(ts: DateTime<Tz>, lead_time: i64) -> String {
+    let utc = ts.with_timezone(&UTC);
+    let hh = format!("{:02}", utc.hour());
+    let date = format!("{:04}{:02}{:02}", utc.year(), utc.month(), utc.day());
     format!("{BASE}/hrrr.{date}/conus/hrrr.t{hh}z.{FORECAST_TYPE}{lead_time:0>2}.grib2")
 }
 
@@ -121,7 +123,7 @@ fn temp_closest_to_station<'a>(
 pub async fn parse_report_with_opts(
     station: &Station,
     model: &Model,
-    ts: DateTime<Utc>,
+    ts: DateTime<Tz>,
     lead_time: i64,
     compute_opts: ComputeOptions,
 ) -> Result<SingleWeatherForecast> {
@@ -147,7 +149,7 @@ pub async fn parse_report_with_opts(
 pub async fn parse_report(
     station: &Station,
     model: &Model,
-    ts: DateTime<Utc>,
+    ts: DateTime<Tz>,
     lead_time: i64,
 ) -> Result<SingleWeatherForecast> {
     parse_report_with_opts(station, model, ts, lead_time, ComputeOptions::Precomputed).await

@@ -35,7 +35,7 @@ impl DataSource<WeatherForecast> for WeatherForecastDataSource {
     }
 
     async fn fetch_data(&mut self) -> Result<WeatherForecast> {
-        let ts = Utc::now() - TimeDelta::hours(2);
+        let ts = Utc::now().with_timezone(&self.station.timezone()) - TimeDelta::hours(1);
         fetch(&self.station, &self.model, ts).await
     }
 }
