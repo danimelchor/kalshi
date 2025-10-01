@@ -2,7 +2,6 @@ use anyhow::Result;
 use async_stream::stream;
 use chrono::{DateTime, DurationRound, TimeDelta, Utc};
 use chrono_tz::Tz;
-use core::num;
 use futures::{Stream, StreamExt, stream::FuturesUnordered};
 use protocol::datetime::DateTimeZoned;
 use serde::{Deserialize, Serialize};
@@ -59,7 +58,7 @@ impl ForecastCycle {
         sem: Arc<Semaphore>,
     ) -> Result<SingleWeatherForecast> {
         let permit = sem.acquire().await.expect("Unwrapping semaphore");
-        wait_for_report(&self.model, &self.ts, lead_time).await;
+        wait_for_report(&self.model, &self.ts, lead_time).await?;
         let bytes = get_report(&self.model, &self.ts, lead_time).await?;
 
         // Parsing the report can be done while we download the next one
@@ -76,7 +75,7 @@ impl ForecastCycle {
     }
 
     pub fn fetch(&self) -> impl Stream<Item = Result<SingleWeatherForecast>> {
-        let semaphore = Arc::new(Semaphore::new(4));
+        let semaphore = Arc::new(Semaphore::new(12));
 
         let tasks = FuturesUnordered::new();
         for lead_time in 0..self.max_lead_time {

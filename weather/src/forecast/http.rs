@@ -1,10 +1,9 @@
-use std::time::Duration;
-
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use bytes::Bytes;
 use chrono::{DateTime, Datelike, Timelike};
 use chrono_tz::{Tz, UTC};
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
+use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::forecast::model::Model;
@@ -20,18 +19,29 @@ fn get_url(model: &Model, ts: &DateTime<Tz>, lead_time: usize) -> String {
     format!("{BASE}/hrrr.{date}/conus/{model}.t{hh}z.{FORECAST_TYPE}{lead_time:0>2}.grib2")
 }
 
+pub enum ReportState {
+    Exists,
+    DoesntExist,
+    RateLimit,
+    Error(StatusCode),
+}
+
 async fn check_if_report_exists(
     model: &Model,
     ts: &DateTime<Tz>,
     lead_time: usize,
-) -> Result<bool> {
+) -> Result<ReportState> {
     let url = get_url(model, ts, lead_time);
     let client = Client::new();
     let response = client.head(url).send().await?;
-    if !response.status().is_success() {
-        anyhow::bail!("Failed to fetch: {}", response.status())
-    }
-    Ok(response.status().is_success())
+    let status_code = response.status();
+    let state = match status_code {
+        StatusCode::OK => ReportState::Exists,
+        StatusCode::NOT_FOUND => ReportState::DoesntExist,
+        StatusCode::FOUND => ReportState::RateLimit,
+        _ => ReportState::Error(status_code),
+    };
+    Ok(state)
 }
 
 pub async fn get_report(model: &Model, ts: &DateTime<Tz>, lead_time: usize) -> Result<Bytes> {
@@ -47,11 +57,23 @@ pub async fn get_report(model: &Model, ts: &DateTime<Tz>, lead_time: usize) -> R
         .context("Extracting bytes from response")
 }
 
-pub async fn wait_for_report(model: &Model, ts: &DateTime<Tz>, lead_time: usize) {
+pub async fn wait_for_report(model: &Model, ts: &DateTime<Tz>, lead_time: usize) -> Result<()> {
+    let mut retries = 0;
     loop {
-        if let Ok(true) = check_if_report_exists(model, ts, lead_time).await {
-            return;
-        }
-        sleep(Duration::from_secs(60)).await;
+        match check_if_report_exists(model, ts, lead_time).await? {
+            ReportState::Exists => return Ok(()),
+            ReportState::Error(status) => {
+                return Err(anyhow!("Failed request with status {}", status));
+            }
+            ReportState::RateLimit => {
+                eprintln!("Forecast fetcher rate limited");
+                sleep(Duration::from_secs(60 * 2_u64.pow(retries))).await;
+                retries += 1;
+            }
+            ReportState::DoesntExist => {
+                sleep(Duration::from_secs(60)).await;
+                retries = 0;
+            }
+        };
     }
 }
