@@ -140,8 +140,13 @@ impl ForecastFetcher {
             loop {
                 println!("Waiting for {ts}'s report");
 
-                let forecast_cycle =
-                    ForecastCycle::new(self.station, self.model, self.compute_options, ts, self.max_lead_time);
+                let forecast_cycle = ForecastCycle::new(
+                    self.station,
+                    self.model,
+                    self.compute_options,
+                    ts,
+                    self.max_lead_time
+                );
                 let mut results = forecast_cycle.fetch() ;
                 let mut total = 0;
                 while let Some(update) = results.next().await {
@@ -149,7 +154,11 @@ impl ForecastFetcher {
                     match update {
                         Ok(update) => {
                             let _ = self.state.insert(update.timestamp, update.temperature);
-                            let forecast = WeatherForecast::new(self.state.clone(), total == self.max_lead_time, self.max_lead_time,);
+                            let forecast = WeatherForecast::new(
+                                self.state.clone(),
+                                total == self.max_lead_time,
+                                self.max_lead_time,
+                            );
                             yield Ok(forecast)
                         },
                         Err(err) => yield Err(err)
