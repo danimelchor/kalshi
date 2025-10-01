@@ -23,7 +23,8 @@ pub struct WeatherForecast {
     #[serde(with = "serde_with::rust::maps_duplicate_key_is_error")]
     pub forecast: BTreeMap<DateTimeZoned, Temperature>,
     pub complete: bool,
-    pub max_lead_time: usize,
+    pub num_lead_times: usize,
+    pub total_lead_times: usize,
 }
 
 struct ForecastCycle {
@@ -104,9 +105,10 @@ impl WeatherForecast {
             .map(|(time, temp)| (time.into(), temp))
             .collect();
         Self {
+            num_lead_times: forecast.len(),
+            total_lead_times: max_lead_time,
             forecast,
             complete,
-            max_lead_time,
         }
     }
 }

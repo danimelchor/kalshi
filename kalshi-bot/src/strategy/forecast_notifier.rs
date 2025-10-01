@@ -58,8 +58,7 @@ impl Strategy<WeatherEvents> for ForecastNotifier {
                         // TODO: handle partial bayesian updates
                         println!(
                             "Partial forecast ({}/{})",
-                            data.message.forecast.len(),
-                            data.message.max_lead_time
+                            data.message.num_lead_times, data.message.num_lead_times
                         );
                     }
                 }
