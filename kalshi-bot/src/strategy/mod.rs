@@ -8,22 +8,24 @@ use crate::strategy::{
     strategy::Strategy,
 };
 use anyhow::Result;
+use chrono::NaiveDate;
 use clap::Args;
 
 #[derive(Debug, Clone, Args)]
 pub struct StrategyCommand {
     name: StrategyName,
+    date: NaiveDate,
 }
 
 pub async fn run_strategy(command: &StrategyCommand) -> Result<()> {
     match command.name {
         StrategyName::ForecastNotifier => {
             let mut strategy = ForecastNotifier::default();
-            strategy.run().await.unwrap()
+            strategy.run(&command.date).await.unwrap()
         }
         StrategyName::DumpIfTempHigher => {
             let mut strategy = DumpIfTempHigher::default();
-            strategy.run().await.unwrap()
+            strategy.run(&command.date).await.unwrap()
         }
     }
 

@@ -13,7 +13,7 @@ use tokio::{
 
 struct CommandSpec {
     cmd: String,
-    args: Option<Vec<String>>,
+    args: Vec<&'static str>,
     delay_secs: Option<u64>,
     color: Color,
     name: &'static str,
@@ -28,9 +28,8 @@ fn run_in_subprocess(service: CommandSpec) -> JoinHandle<Result<()>> {
         let stdout_prefix = prefix.clone();
         let stderr_prefix = prefix.clone();
 
-        let args: &[String] = service.args.as_deref().unwrap_or(&[]);
         let mut child = Command::new(&service.cmd)
-            .args(args)
+            .args(&service.args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -66,7 +65,7 @@ fn run_in_subprocess(service: CommandSpec) -> JoinHandle<Result<()>> {
         if !status.success() {
             anyhow::bail!(
                 "Command `{}` exited with status {:?}",
-                args[1],
+                service.args[1],
                 status.code()
             );
         }
@@ -86,42 +85,42 @@ pub async fn start_system() -> Result<()> {
     let services = vec![
         CommandSpec {
             cmd: "geckodriver".into(),
-            args: None,
+            args: vec!["--log", "error"],
             delay_secs: None,
             color: Color::Blue,
             name: "geckodriver",
         },
         CommandSpec {
             cmd: exe.clone(),
-            args: Some(vec!["data-source".into(), "nws-daily-observations".into()]),
+            args: vec!["data-source", "nws-daily-observations"],
             delay_secs: None,
             color: Color::Green,
             name: "nws-daily-observations",
         },
         CommandSpec {
             cmd: exe.clone(),
-            args: Some(vec!["data-source".into(), "nws-hourly-observations".into()]),
+            args: vec!["data-source", "nws-hourly-observations"],
             delay_secs: Some(2),
             color: Color::Yellow,
             name: "nws-hourly-observations",
         },
         CommandSpec {
             cmd: exe.clone(),
-            args: Some(vec!["data-source".into(), "weather-forecast".into()]),
+            args: vec!["data-source", "weather-forecast"],
             delay_secs: None,
             color: Color::Magenta,
             name: "weather-forecast",
         },
         CommandSpec {
             cmd: exe.clone(),
-            args: Some(vec!["strategy".into(), "dump-if-temp-higher".into()]),
+            args: vec!["strategy", "dump-if-temp-higher"],
             delay_secs: Some(4),
             color: Color::Cyan,
             name: "dump-if-temp-higher",
         },
         CommandSpec {
             cmd: exe.clone(),
-            args: Some(vec!["strategy".into(), "forecast-notifier".into()]),
+            args: vec!["strategy", "forecast-notifier"],
             delay_secs: Some(4),
             color: Color::BrightYellow,
             name: "forecast-notifier",

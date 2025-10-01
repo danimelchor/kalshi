@@ -52,10 +52,6 @@ pub async fn wait_for_report(model: &Model, ts: &DateTime<Tz>, lead_time: usize)
         if let Ok(true) = check_if_report_exists(model, ts, lead_time).await {
             return;
         }
-        eprintln!(
-            "Report for {} with {} lead time is not ready yet",
-            ts, lead_time
-        );
         sleep(Duration::from_secs(60)).await;
     }
 }

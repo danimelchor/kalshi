@@ -20,9 +20,23 @@ use crate::{
 };
 
 #[derive(Encode, Decode, Debug, Clone, Serialize, Deserialize)]
+pub struct TemperatureAtTime {
+    pub timestamp: SerializableDateTime,
+    pub temperature: Temperature,
+}
+
+impl TemperatureAtTime {
+    fn new(timestamp: DateTime<Tz>, temperature: Temperature) -> Self {
+        Self {
+            timestamp: timestamp.into(),
+            temperature,
+        }
+    }
+}
+
+#[derive(Encode, Decode, Debug, Clone, Serialize, Deserialize)]
 pub struct WeatherForecast {
-    pub temperatures: Vec<Temperature>,
-    pub timestamps: Vec<SerializableDateTime>,
+    pub temperatures_at_times: Vec<TemperatureAtTime>,
 }
 
 struct ForecastCycle {
@@ -83,44 +97,51 @@ pub struct ForecastFetcher {
     state: HashMap<DateTime<Tz>, Temperature>,
     station: Station,
     model: Model,
+    max_lead_time: usize,
     compute_options: ComputeOptions,
 }
 
 impl From<HashMap<DateTime<Tz>, Temperature>> for WeatherForecast {
     fn from(state: HashMap<DateTime<Tz>, Temperature>) -> Self {
-        let (timestamps, temperatures): (Vec<_>, Vec<_>) =
-            state.into_iter().map(|(k, v)| (k.into(), v)).unzip();
+        let temperatures_at_times: Vec<_> = state
+            .into_iter()
+            .map(|(time, temp)| TemperatureAtTime::new(time, temp))
+            .collect();
         Self {
-            temperatures,
-            timestamps,
+            temperatures_at_times,
         }
     }
 }
 
 impl ForecastFetcher {
-    pub fn new(station: Station, model: Model, compute_options: Option<ComputeOptions>) -> Self {
+    pub fn new(
+        station: Station,
+        model: Model,
+        max_lead_time: usize,
+        compute_options: Option<ComputeOptions>,
+    ) -> Self {
         let compute_options = compute_options.unwrap_or(ComputeOptions::Precomputed);
         Self {
             compute_options,
             state: HashMap::new(),
+            max_lead_time,
             station,
             model,
         }
     }
 
     pub fn fetch(&mut self) -> impl Stream<Item = Result<WeatherForecast>> {
-        let mut ts = Utc::now()
+        let mut ts = (Utc::now() - TimeDelta::hours(1))
             .with_timezone(&self.station.timezone())
-            .duration_round(TimeDelta::hours(1))
-            .unwrap()
-            - TimeDelta::hours(1);
+            .duration_trunc(TimeDelta::hours(1))
+            .unwrap();
 
         stream! {
             loop {
-                eprintln!("Waiting {ts}'s report");
+                println!("Waiting for {ts}'s report");
 
                 let forecast_cycle =
-                    ForecastCycle::new(self.station, self.model, self.compute_options, ts, 12);
+                    ForecastCycle::new(self.station, self.model, self.compute_options, ts, self.max_lead_time);
                 let mut results =forecast_cycle.fetch() ;
                 while let Some(update) = results.next().await {
                     match update {

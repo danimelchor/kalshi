@@ -19,7 +19,7 @@ pub struct WeatherForecastDataSource {
 
 impl WeatherForecastDataSource {
     pub fn new(station: Station, model: Model) -> Self {
-        let fetcher = ForecastFetcher::new(station, model, None);
+        let fetcher = ForecastFetcher::new(station, model, 24, None);
         Self { fetcher }
     }
 }

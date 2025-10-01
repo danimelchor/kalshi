@@ -22,6 +22,7 @@ const METERS_ABOVE_GROUND: i32 = 2;
 pub struct SingleWeatherForecast {
     pub temperature: Temperature,
     pub timestamp: DateTime<Tz>,
+    pub _lead_time: usize,
 }
 
 fn find_message<'a>(
@@ -106,7 +107,7 @@ fn temp_closest_to_station<'a>(
         }
     };
 
-    Ok(Temperature::Kelvin(temp_kelvin))
+    Ok(Temperature::Kelvin(temp_kelvin).to_fahrenheit())
 }
 
 pub async fn parse_report_with_opts(
@@ -125,5 +126,6 @@ pub async fn parse_report_with_opts(
     Ok(SingleWeatherForecast {
         temperature,
         timestamp: *ts + TimeDelta::hours(lead_time as i64),
+        _lead_time: lead_time,
     })
 }

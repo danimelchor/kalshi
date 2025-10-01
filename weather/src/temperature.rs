@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use bincode::{self, Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -46,5 +48,18 @@ impl Temperature {
     /// Return a new `Temperature` in Kelvin
     pub fn to_kelvin(&self) -> Temperature {
         Temperature::Kelvin(self.as_kelvin())
+    }
+}
+
+impl PartialEq for Temperature {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_kelvin() == other.as_kelvin()
+    }
+}
+impl Eq for Temperature {}
+
+impl PartialOrd for Temperature {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.as_kelvin().total_cmp(&other.as_kelvin()))
     }
 }

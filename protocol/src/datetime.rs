@@ -28,17 +28,16 @@ impl From<DateTime<Utc>> for SerializableDateTime {
     }
 }
 
-impl TryFrom<SerializableDateTime> for DateTime<Tz> {
-    type Error = anyhow::Error;
-
-    fn try_from(sdt: SerializableDateTime) -> Result<Self, Self::Error> {
+impl From<SerializableDateTime> for DateTime<Tz> {
+    fn from(sdt: SerializableDateTime) -> Self {
         let tz: Tz = sdt
             .tz
             .parse()
-            .map_err(|e| anyhow!("Failed to parse timezone '{}': {}", sdt.tz, e))?;
+            .map_err(|e| anyhow!("Failed to parse timezone '{}': {}", sdt.tz, e))
+            .expect("Serialized timezone could not be deserialized");
 
         tz.timestamp_opt(sdt.timestamp, 0)
             .single()
-            .ok_or_else(|| anyhow!("Invalid timestamp {} for timezone {}", sdt.timestamp, tz))
+            .unwrap_or_else(|| panic!("Invalid timestamp {} for timezone {}", sdt.timestamp, tz))
     }
 }

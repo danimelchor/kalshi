@@ -1446,6 +1446,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "chrono",
+ "chrono-tz 0.10.4",
  "clap",
  "colored",
  "futures",
