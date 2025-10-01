@@ -19,10 +19,11 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct WeatherForecast(
+pub struct WeatherForecast {
     #[serde(with = "serde_with::rust::maps_duplicate_key_is_error")]
-    pub  BTreeMap<DateTimeZoned, Temperature>,
-);
+    pub forecast: BTreeMap<DateTimeZoned, Temperature>,
+    pub complete: bool,
+}
 
 struct ForecastCycle {
     ts: DateTime<Tz>,
@@ -91,13 +92,13 @@ pub struct ForecastFetcher {
     compute_options: ComputeOptions,
 }
 
-impl From<BTreeMap<DateTime<Tz>, Temperature>> for WeatherForecast {
-    fn from(state: BTreeMap<DateTime<Tz>, Temperature>) -> Self {
-        let inner: BTreeMap<_, _> = state
+impl WeatherForecast {
+    fn new(state: BTreeMap<DateTime<Tz>, Temperature>, complete: bool) -> Self {
+        let forecast: BTreeMap<_, _> = state
             .into_iter()
             .map(|(time, temp)| (time.into(), temp))
             .collect();
-        Self(inner)
+        Self { forecast, complete }
     }
 }
 
@@ -130,12 +131,15 @@ impl ForecastFetcher {
 
                 let forecast_cycle =
                     ForecastCycle::new(self.station, self.model, self.compute_options, ts, self.max_lead_time);
-                let mut results =forecast_cycle.fetch() ;
+                let mut results = forecast_cycle.fetch() ;
+                let mut total = 0;
                 while let Some(update) = results.next().await {
+                    total += 1;
                     match update {
                         Ok(update) => {
                             let _ = self.state.insert(update.timestamp, update.temperature);
-                            yield Ok( self.state.clone().into())
+                            let forecast = WeatherForecast::new(self.state.clone(), total == self.max_lead_time);
+                            yield Ok(forecast)
                         },
                         Err(err) => yield Err(err)
                     }
@@ -143,6 +147,7 @@ impl ForecastFetcher {
 
                 // Advance to the next report
                 ts += TimeDelta::hours(1);
+                self.state = BTreeMap::new();
             }
         }
     }

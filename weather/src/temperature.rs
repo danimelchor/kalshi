@@ -57,8 +57,16 @@ impl PartialEq for Temperature {
 }
 impl Eq for Temperature {}
 
+impl Ord for Temperature {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_kelvin()
+            .partial_cmp(&other.as_kelvin())
+            .unwrap_or(Ordering::Equal)
+    }
+}
+
 impl PartialOrd for Temperature {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.as_kelvin().total_cmp(&other.as_kelvin()))
+        Some(self.cmp(other))
     }
 }

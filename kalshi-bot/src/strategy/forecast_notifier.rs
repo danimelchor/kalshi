@@ -37,9 +37,10 @@ impl Strategy<WeatherEvents> for ForecastNotifier {
         let _event_listener = client
             .listen_all(|event| match event {
                 WeatherEvents::WeatherForecast(data) => {
+                    let complete = data.message.complete;
                     let forecast: BTreeMap<DateTime<Tz>, Temperature> = data
                         .message
-                        .0
+                        .forecast
                         .into_iter()
                         .filter(|(k, _)| {
                             let dt: DateTime<Tz> = (*k).into();
@@ -48,8 +49,14 @@ impl Strategy<WeatherEvents> for ForecastNotifier {
                         .map(|(k, v)| (k.into(), v))
                         .collect();
 
-                    self.forecast.extend(forecast);
-                    println!("Weather forecast: {:?}", self.forecast);
+                    if complete {
+                        self.forecast.extend(forecast);
+                        if let Some((dt, max_temp)) = self.forecast.iter().max_by_key(|(_, v)| *v) {
+                            println!("Max temperature {}F at {}", max_temp.as_fahrenheit(), dt);
+                        }
+                    } else {
+                        // TODO: handle partial bayesian updates
+                    }
                 }
             })
             .await;
