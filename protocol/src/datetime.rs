@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
 use bincode::{Decode, Encode};
 use chrono::{DateTime, TimeZone, Utc};
 use chrono_tz::{Etc::UTC, Tz};
