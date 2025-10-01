@@ -22,7 +22,6 @@ const METERS_ABOVE_GROUND: i32 = 2;
 pub struct SingleWeatherForecast {
     pub temperature: Temperature,
     pub timestamp: DateTime<Tz>,
-    pub lead_time: usize,
 }
 
 fn find_message<'a>(
@@ -126,15 +125,5 @@ pub async fn parse_report_with_opts(
     Ok(SingleWeatherForecast {
         temperature,
         timestamp: *ts + TimeDelta::hours(lead_time as i64),
-        lead_time,
     })
-}
-
-pub async fn parse_report(
-    station: &Station,
-    model: &Model,
-    ts: &DateTime<Tz>,
-    lead_time: usize,
-) -> Result<SingleWeatherForecast> {
-    parse_report_with_opts(station, model, ts, lead_time, ComputeOptions::Precomputed).await
 }

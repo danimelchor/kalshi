@@ -44,9 +44,7 @@ async fn main() -> Result<()> {
             compute_opts,
             model,
         } => {
-            let compute_opts = compute_opts.unwrap_or(ComputeOptions::Precomputed);
-            let ts = Utc::now().with_timezone(&Tz::America__New_York) - TimeDelta::hours(1);
-            let mut fetcher = ForecastFetcher::new(cli.station, model);
+            let mut fetcher = ForecastFetcher::new(cli.station, model, compute_opts);
             let mut result = pin!(fetcher.fetch());
             while let Some(forecast) = result.next().await {
                 println!("{:?}", forecast);
