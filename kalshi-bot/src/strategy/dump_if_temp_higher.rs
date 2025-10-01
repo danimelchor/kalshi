@@ -1,4 +1,5 @@
 use crate::strategy::strategy::Strategy;
+use anyhow::Result;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use protocol::protocol::{Event, MultiServiceSubscriber, ServiceName};
@@ -29,7 +30,7 @@ pub struct DumpIfTempHigher();
 
 #[async_trait]
 impl Strategy<WeatherEvents> for DumpIfTempHigher {
-    async fn run(&mut self, date: &NaiveDate) -> tokio::io::Result<()> {
+    async fn run(&mut self, date: &NaiveDate) -> Result<()> {
         let mut client = MultiServiceSubscriber::<WeatherEvents>::default();
         client
             .add_subscription::<NWSHourlyTimeseriesTemperatures>(

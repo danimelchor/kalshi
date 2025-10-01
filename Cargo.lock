@@ -1634,6 +1634,7 @@ dependencies = [
  "chrono-tz 0.10.4",
  "clap",
  "colored",
+ "dotenvy",
  "futures",
  "protocol",
  "reqwest",
@@ -1641,6 +1642,7 @@ dependencies = [
  "serde_json",
  "strum",
  "strum_macros",
+ "telegram",
  "tera",
  "tokio",
  "weather",
@@ -2349,6 +2351,7 @@ name = "protocol"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-stream",
  "async-trait",
  "bitcode",
  "chrono",
@@ -3046,7 +3049,10 @@ name = "telegram"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitcode",
  "dotenvy",
+ "protocol",
+ "serde",
  "teloxide",
  "tokio",
 ]

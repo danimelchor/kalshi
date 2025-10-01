@@ -14,3 +14,4 @@ futures = "0.3.31"
 anyhow = "1.0.100"
 bitcode = { version = "0.6.7", features = ["derive", "serde"] }
 chrono-tz = { version = "0.10.4", features = ["serde"] }
+async-stream = "0.3.6"

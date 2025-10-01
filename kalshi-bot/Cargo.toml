@@ -5,6 +5,10 @@ edition = "2024"
 default-run = "kalshi-bot"
 
 [dependencies]
+weather = { path = "../weather" }
+protocol = { path = "../protocol" }
+telegram = { path = "../telegram" }
+
 tokio = { version = "1.40", features = ["full"] }
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
@@ -15,11 +19,10 @@ strum_macros = "0.27"
 futures = "0.3.31"
 reqwest = "0.12.23"
 clap = { version = "4.5.48", features = ["derive"] }
-weather = { path = "../weather" }
-protocol = { path = "../protocol" }
 anyhow = "1.0.100"
 tera = "1.20.0"
 colored = "3.0.0"
 async-stream = "0.3.6"
 chrono-tz = { version = "0.10.4", features = ["serde"] }
 bitcode = { version = "0.6.7", features = ["derive", "serde"] }
+dotenvy = "0.15.7"

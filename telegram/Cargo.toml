@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+protocol = { path = "../protocol" }
+
 anyhow = "1.0.100"
 dotenvy = "0.15.7"
 teloxide = { version = "0.17.0", features = ["macros"] }
 tokio = { version = "1.47.1", features = ["full"] }
+serde = { version = "1.0.228", features = ["derive"] }
+bitcode = { version = "0.6.7", features = ["derive"] }

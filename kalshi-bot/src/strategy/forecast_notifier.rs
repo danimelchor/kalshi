@@ -1,4 +1,5 @@
 use crate::strategy::Strategy;
+use anyhow::Result;
 use async_trait::async_trait;
 use chrono::DateTime;
 use chrono::NaiveDate;
@@ -7,6 +8,7 @@ use protocol::protocol::Event;
 use protocol::protocol::MultiServiceSubscriber;
 use protocol::protocol::ServiceName;
 use std::collections::BTreeMap;
+use telegram::bot::TelegramClient;
 use weather::forecast::fetcher::WeatherForecast;
 use weather::temperature::Temperature;
 
@@ -21,14 +23,26 @@ impl From<Event<WeatherForecast>> for WeatherEvents {
     }
 }
 
-#[derive(Default)]
 pub struct ForecastNotifier {
     forecast: BTreeMap<DateTime<Tz>, Temperature>,
+    telegram_client: TelegramClient,
+}
+
+impl ForecastNotifier {
+    pub async fn new() -> Self {
+        let telegram_client = TelegramClient::start()
+            .await
+            .expect("Create telegram client");
+        Self {
+            forecast: BTreeMap::new(),
+            telegram_client,
+        }
+    }
 }
 
 #[async_trait]
 impl Strategy<WeatherEvents> for ForecastNotifier {
-    async fn run(&mut self, date: &NaiveDate) -> tokio::io::Result<()> {
+    async fn run(&mut self, date: &NaiveDate) -> Result<()> {
         let mut client = MultiServiceSubscriber::<WeatherEvents>::default();
         client
             .add_subscription::<WeatherForecast>(ServiceName::WeatherForecast)
@@ -53,6 +67,7 @@ impl Strategy<WeatherEvents> for ForecastNotifier {
                         self.forecast.extend(forecast);
                         if let Some((dt, max_temp)) = self.forecast.iter().max_by_key(|(_, v)| *v) {
                             println!("Max temperature {}F at {}", max_temp.as_fahrenheit(), dt);
+                            self.telegram_client.send_message(message)
                         }
                     } else {
                         // TODO: handle partial bayesian updates

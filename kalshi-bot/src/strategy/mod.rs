@@ -22,7 +22,7 @@ pub struct StrategyCommand {
 pub async fn run_strategy(command: &StrategyCommand) -> Result<()> {
     match command.name {
         StrategyName::ForecastNotifier => {
-            let mut strategy = ForecastNotifier::default();
+            let mut strategy = ForecastNotifier::new().await;
             strategy.run(&command.date).await.unwrap()
         }
         StrategyName::DumpIfTempHigher => {

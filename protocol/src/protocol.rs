@@ -1,6 +1,9 @@
+use anyhow::{Context, Result, anyhow};
+use async_stream::stream;
 use chrono::Utc;
 use futures::lock::Mutex;
-use futures::stream::{SelectAll, Stream, StreamExt, unfold};
+use futures::stream::{SelectAll, Stream, StreamExt};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -15,9 +18,10 @@ use tokio::{
 
 use crate::datetime::DateTimeZoned;
 
-#[derive(strum_macros::Display, Hash, PartialEq, Eq)]
+#[derive(strum_macros::Display, Hash, PartialEq, Eq, Clone, Copy)]
 #[strum(serialize_all = "snake_case")]
 pub enum ServiceName {
+    Telegram,
     WeatherForecast,
     HourlyWeatherTimeseries,
     HourlyWeatherTable,
@@ -54,17 +58,80 @@ pub struct ServicePublisher<T> {
     _marker: PhantomData<T>,
 }
 
+pub async fn create_unix_bind(service_name: ServiceName) -> Result<UnixListener> {
+    let path = service_name.unix_path();
+    if Path::new(&path).exists() {
+        fs::remove_file(&path).await?;
+    }
+    UnixListener::bind(&path).context("Creating unix listener")
+}
+
+pub async fn create_unix_stream(service: ServiceName) -> Result<UnixStream> {
+    let path = service.unix_path();
+
+    // Retry connection with exponential backoff
+    let mut retry_count = 0;
+    let max_retries = 5;
+
+    loop {
+        match UnixStream::connect(&path).await {
+            Ok(stream) => {
+                println!("Subscribed to {}", service);
+                return Ok(stream);
+            }
+            Err(_) if retry_count < max_retries => {
+                retry_count += 1;
+                let delay = std::time::Duration::from_millis(100 * (1 << retry_count));
+                tokio::time::sleep(delay).await;
+            }
+            Err(e) => {
+                return Err(anyhow!(
+                    "Failed to connect to {} after {} attempts. Error: {}",
+                    service,
+                    max_retries,
+                    e
+                ));
+            }
+        }
+    }
+}
+
+pub async fn write(buf: &[u8], stream: &mut UnixStream) -> Result<()> {
+    // We could encode the message into a buf here but it's more efficient to take
+    // an encoded message so that we encode once for many clients
+    let len = buf.len() as u32;
+    stream.write_all(&len.to_le_bytes()).await?;
+    stream.write_all(buf).await?;
+    Ok(())
+}
+
+pub async fn read<T: DeserializeOwned>(stream: &mut UnixStream) -> Result<Event<T>> {
+    // Read message length
+    let mut len_buf = [0u8; 4];
+    stream
+        .read_exact(&mut len_buf)
+        .await
+        .context("Lost connection")?;
+
+    let len = u32::from_le_bytes(len_buf) as usize;
+
+    // Read message data
+    let mut buf = vec![0u8; len];
+    stream
+        .read_exact(&mut buf)
+        .await
+        .context("Failed to read full message")?;
+
+    // Deserialize the message
+    bitcode::deserialize::<Event<T>>(&buf).context("Deserializing message into type")
+}
+
 impl<T> ServicePublisher<T>
 where
     T: Serialize,
 {
-    pub async fn new(service_name: ServiceName) -> tokio::io::Result<Self> {
-        let path = service_name.unix_path();
-        if Path::new(&path).exists() {
-            fs::remove_file(&path).await?;
-        }
-
-        let listener = UnixListener::bind(&path)?;
+    pub async fn new(service_name: ServiceName) -> Result<Self> {
+        let listener = create_unix_bind(service_name).await?;
         let clients = Arc::new(Mutex::new(Vec::new()));
 
         let clients_clone = clients.clone();
@@ -88,23 +155,14 @@ where
         })
     }
 
-    pub async fn publish(&mut self, event: &Event<T>) -> tokio::io::Result<()> {
+    pub async fn publish(&mut self, event: &Event<T>) -> Result<()> {
         let buf = bitcode::serialize(event).unwrap();
-        let len = buf.len() as u32;
 
         let mut clients = self.clients.lock().await;
         let mut failed_clients = Vec::new();
 
         for (index, client) in clients.iter_mut().enumerate() {
-            let mut success = true;
-
-            if client.write_all(&len.to_le_bytes()).await.is_err()
-                || client.write_all(&buf).await.is_err()
-            {
-                success = false;
-            }
-
-            if !success {
+            if write(&buf, client).await.is_err() {
                 failed_clients.push(index);
             }
         }
@@ -121,7 +179,6 @@ where
 
 pub struct ServiceSubscriber<T> {
     subscription: UnixStream,
-    service: ServiceName,
     _marker: PhantomData<T>,
 }
 
@@ -129,79 +186,22 @@ impl<T> ServiceSubscriber<T>
 where
     T: for<'de> Deserialize<'de> + Send + Sync + 'static,
 {
-    pub async fn new(service: ServiceName) -> tokio::io::Result<Self> {
-        let stream = ServiceSubscriber::<T>::subscribe(&service).await?;
+    pub async fn new(service: ServiceName) -> Result<Self> {
+        let stream = create_unix_stream(service).await?;
         Ok(Self {
-            service,
             subscription: stream,
             _marker: PhantomData,
         })
     }
 
-    pub async fn subscribe(service: &ServiceName) -> tokio::io::Result<UnixStream> {
-        let path = service.unix_path();
-
-        // Retry connection with exponential backoff
-        let mut retry_count = 0;
-        let max_retries = 5;
-
-        loop {
-            match UnixStream::connect(&path).await {
-                Ok(stream) => {
-                    println!("Subscribed to {}", service);
-                    return Ok(stream);
-                }
-                Err(_) if retry_count < max_retries => {
-                    retry_count += 1;
-                    let delay = std::time::Duration::from_millis(100 * (1 << retry_count));
-                    tokio::time::sleep(delay).await;
-                }
-                Err(e) => {
-                    return Err(tokio::io::Error::new(
-                        tokio::io::ErrorKind::NotFound,
-                        format!(
-                            "Failed to connect to {} after {} attempts. Error: {}",
-                            service, max_retries, e
-                        ),
-                    ));
-                }
+    pub fn listen(self) -> impl Stream<Item = Result<Event<T>>> {
+        let mut subscription = self.subscription;
+        stream! {
+            loop {
+                let message = read(&mut subscription).await;
+                yield message;
             }
         }
-    }
-
-    pub fn listen(
-        self,
-    ) -> impl Stream<Item = Result<Event<T>, Box<dyn std::error::Error + Send + Sync>>> {
-        let service_name_str = self.service.to_string();
-        unfold(self.subscription, move |mut stream| {
-            let service_name_clone = service_name_str.clone();
-            Box::pin(async move {
-                // Read message length
-                let mut len_buf = [0u8; 4];
-                if let Err(e) = stream.read_exact(&mut len_buf).await {
-                    eprintln!("Lost connection to {}: {}", service_name_clone, e);
-                    return None;
-                }
-
-                let len = u32::from_le_bytes(len_buf) as usize;
-
-                // Read message data
-                let mut buf = vec![0u8; len];
-                if let Err(e) = stream.read_exact(&mut buf).await {
-                    eprintln!("Failed to read from {}: {}", service_name_clone, e);
-                    return None;
-                }
-
-                // Deserialize the message
-                match bitcode::deserialize::<Event<T>>(&buf) {
-                    Ok(event) => Some((Ok(event), stream)),
-                    Err(e) => Some((
-                        Err(Box::new(e) as Box<dyn std::error::Error + Send + Sync>),
-                        stream,
-                    )),
-                }
-            })
-        })
     }
 }
 
@@ -218,7 +218,7 @@ impl<E> Default for MultiServiceSubscriber<E> {
 }
 
 impl<E> MultiServiceSubscriber<E> {
-    pub async fn add_subscription<T>(&mut self, service: ServiceName) -> tokio::io::Result<()>
+    pub async fn add_subscription<T>(&mut self, service: ServiceName) -> Result<()>
     where
         T: for<'de> Deserialize<'de> + Send + Sync + 'static,
         Event<T>: Into<E>,

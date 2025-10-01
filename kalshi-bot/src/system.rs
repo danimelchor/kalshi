@@ -91,13 +91,22 @@ pub async fn start_system(command: &SystemCommand) -> Result<()> {
         .unwrap()
         .to_string();
 
-    let mut services = vec![CommandSpec {
-        cmd: "geckodriver".into(),
-        args: vec!["--log".into(), "error".into()],
-        delay_secs: None,
-        color: Color::Blue,
-        name: "geckodriver".into(),
-    }];
+    let mut services = vec![
+        CommandSpec {
+            cmd: "geckodriver".into(),
+            args: vec!["--log".into(), "error".into()],
+            delay_secs: None,
+            color: Color::Blue,
+            name: "geckodriver".into(),
+        },
+        CommandSpec {
+            cmd: exe.clone(),
+            args: vec!["telegram".into()],
+            delay_secs: None,
+            color: Color::Cyan,
+            name: "telegram".into(),
+        },
+    ];
 
     for data_source in DataSourceName::iter() {
         services.push(CommandSpec {
@@ -119,7 +128,7 @@ pub async fn start_system(command: &SystemCommand) -> Result<()> {
                 command.date.to_string(),
             ],
             delay_secs: None,
-            color: Color::Cyan,
+            color: Color::Magenta,
             name: strategy.to_string(),
         })
     }
