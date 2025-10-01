@@ -108,7 +108,7 @@ impl ForecastFetcher {
         }
     }
 
-    pub fn fetch(&mut self) -> impl Stream<Item = WeatherForecast> {
+    pub fn fetch(&mut self) -> impl Stream<Item = Result<WeatherForecast>> {
         let mut ts = Utc::now()
             .with_timezone(&self.station.timezone())
             .duration_round(TimeDelta::hours(1))
@@ -120,15 +120,15 @@ impl ForecastFetcher {
                 eprintln!("Waiting {ts}'s report");
 
                 let forecast_cycle =
-                    ForecastCycle::new(self.station.clone(), self.model.clone(),self.compute_options, ts, 12);
+                    ForecastCycle::new(self.station, self.model, self.compute_options, ts, 12);
                 let mut results =forecast_cycle.fetch() ;
                 while let Some(update) = results.next().await {
                     match update {
                         Ok(update) => {
                             let _ = self.state.insert(update.timestamp, update.temperature);
-                            yield self.state.clone().into()
+                            yield Ok( self.state.clone().into())
                         },
-                        Err(err) => eprintln!("Error fetching forecast: {}", err)
+                        Err(err) => yield Err(err)
                     }
                 }
 

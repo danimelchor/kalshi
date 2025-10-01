@@ -1,8 +1,8 @@
 use async_trait::async_trait;
-use chrono::{TimeDelta, Utc};
+use futures::Stream;
 use weather::{
     forecast::{
-        fetcher::{WeatherForecast, fetch},
+        fetcher::{ForecastFetcher, WeatherForecast},
         model::Model,
     },
     station::Station,
@@ -14,13 +14,13 @@ use protocol::protocol::ServiceName;
 use anyhow::Result;
 
 pub struct WeatherForecastDataSource {
-    station: Station,
-    model: Model,
+    fetcher: ForecastFetcher,
 }
 
 impl WeatherForecastDataSource {
     pub fn new(station: Station, model: Model) -> Self {
-        Self { station, model }
+        let fetcher = ForecastFetcher::new(station, model, None);
+        Self { fetcher }
     }
 }
 
@@ -34,8 +34,7 @@ impl DataSource<WeatherForecast> for WeatherForecastDataSource {
         ServiceName::WeatherForecast
     }
 
-    async fn fetch_data(&mut self) -> Result<WeatherForecast> {
-        let ts = Utc::now().with_timezone(&self.station.timezone()) - TimeDelta::hours(1);
-        fetch(&self.station, &self.model, ts).await
+    fn fetch_data(&mut self) -> impl Stream<Item = Result<WeatherForecast>> + Send {
+        self.fetcher.fetch()
     }
 }

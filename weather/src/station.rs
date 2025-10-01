@@ -4,7 +4,7 @@ use clap::ValueEnum;
 
 use crate::coords::LatLon;
 
-#[derive(Debug, Clone, Decode, Encode, strum_macros::Display, ValueEnum)]
+#[derive(Debug, Copy, Clone, Decode, Encode, strum_macros::Display, ValueEnum)]
 pub enum Station {
     KNYC,
 }

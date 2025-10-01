@@ -1,12 +1,14 @@
-use anyhow::{Context, Result};
-use async_trait::async_trait;
+use crate::datasource::datasource::DataSource;
+use anyhow::Result;
+use async_stream::stream;
+use futures::Stream;
+use protocol::protocol::ServiceName;
+use std::time::Duration;
+use tokio::time::sleep;
 use weather::{
     observations::daily::{NWSDailyObservationFetcher, NWSDailyReport},
     station::Station,
 };
-
-use crate::datasource::datasource::DataSource;
-use protocol::protocol::ServiceName;
 
 pub struct DailyWeatherObservationDataSource {
     fetcher: NWSDailyObservationFetcher,
@@ -19,7 +21,6 @@ impl DailyWeatherObservationDataSource {
     }
 }
 
-#[async_trait]
 impl DataSource<NWSDailyReport> for DailyWeatherObservationDataSource {
     fn name() -> String {
         "Weather Forecast".into()
@@ -29,10 +30,15 @@ impl DataSource<NWSDailyReport> for DailyWeatherObservationDataSource {
         ServiceName::DailyWeatherObservations
     }
 
-    async fn fetch_data(&mut self) -> Result<NWSDailyReport> {
-        self.fetcher
-            .fetch(1, true)
-            .await
-            .context("scraping NWS daily temperatures")
+    fn fetch_data(&mut self) -> impl Stream<Item = Result<NWSDailyReport>> + Send {
+        stream! {
+            loop {
+                let result = self.fetcher
+                    .fetch(1, true)
+                    .await;
+                yield result;
+                    sleep(Duration::from_secs(60)).await;
+            }
+        }
     }
 }

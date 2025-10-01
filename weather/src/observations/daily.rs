@@ -105,6 +105,6 @@ impl NWSDailyObservationFetcher {
 
         let report_text = pre_block.text().collect::<Vec<_>>().join("\n");
 
-        NWSDailyReport::parse_report(&report_text, self.station.clone(), for_today)
+        NWSDailyReport::parse_report(&report_text, self.station, for_today)
     }
 }

@@ -47,7 +47,7 @@ fn maybe_to_float(val: Option<&String>) -> Option<f32> {
 }
 
 impl NWSHourlyTemperature {
-    pub fn from_row(station: &Station, row: &HashMap<String, String>) -> Result<Self, String> {
+    pub fn from_row(station: Station, row: &HashMap<String, String>) -> Result<Self, String> {
         // Parse date
         let year = chrono::Local::now().year();
         let dt_str = format!("{}, {}", row.get("date_time_l").unwrap(), year);
@@ -64,7 +64,7 @@ impl NWSHourlyTemperature {
 
         Ok(NWSHourlyTemperature {
             datetime: dt.into(),
-            station: station.clone(),
+            station,
             temperature: Temperature::Fahrenheit(temp_f),
             six_hr_max_temperature: six_hr_max_f,
         })
@@ -163,7 +163,7 @@ impl NWSHourlyObservationsScraper {
         let mut result = Vec::new();
         for row in rows.into_iter().rev() {
             let map: HashMap<_, _> = self.headers_cache.iter().cloned().zip(row).collect();
-            if let Ok(temp) = NWSHourlyTemperature::from_row(&self.station, &map) {
+            if let Ok(temp) = NWSHourlyTemperature::from_row(self.station, &map) {
                 result.push(temp);
             }
         }

@@ -1,12 +1,13 @@
+use anyhow::Result;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use chrono::Utc;
-
-use anyhow::Result;
+use futures::{Stream, StreamExt};
 use protocol::{
     datetime::SerializableDateTime,
     protocol::{Event, ServiceName, ServicePublisher},
 };
+use std::pin::pin;
 
 #[derive(Debug, Encode, Decode)]
 pub struct DataSourceEvent<T> {
@@ -38,17 +39,18 @@ where
     fn name() -> String;
     fn service_name() -> ServiceName;
 
-    async fn fetch_data(&mut self) -> Result<T>;
+    fn fetch_data(&mut self) -> impl Stream<Item = Result<T>> + Send;
 
-    async fn run(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn run(&mut self) -> Result<()> {
         let mut publisher = ServicePublisher::new(Self::service_name()).await?;
         let mut event_id = 0u32;
 
         // Wait for unix socket
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        loop {
-            match self.fetch_data().await {
+        let mut stream = pin!(self.fetch_data());
+        while let Some(event) = stream.next().await {
+            match event {
                 Ok(data) => {
                     let event = Event::new(event_id, data);
                     if let Err(e) = publisher.publish(&event).await {
@@ -60,9 +62,8 @@ where
                     eprintln!("Failed to fetch data for {}: {}", Self::name(), e);
                 }
             }
-
-            // TODO: adjust sleep time
-            tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
         }
+
+        Ok(())
     }
 }
