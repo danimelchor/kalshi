@@ -17,3 +17,9 @@ impl Model {
         }
     }
 }
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum ComputeOptions {
+    Compute,
+    Precomputed,
+}

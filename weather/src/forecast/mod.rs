@@ -1,3 +1,4 @@
 pub mod fetcher;
+mod http;
 pub mod model;
-pub mod parser;
+mod parser;

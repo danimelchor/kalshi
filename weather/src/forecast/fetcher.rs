@@ -1,14 +1,17 @@
 use anyhow::Result;
+use async_stream::stream;
 use bincode::{Decode, Encode};
-use chrono::DateTime;
+use chrono::{DateTime, DurationRound, TimeDelta, Timelike, Utc};
 use chrono_tz::Tz;
-use futures::future::join_all;
+use futures::{Stream, StreamExt, stream::FuturesUnordered};
 use protocol::datetime::SerializableDateTime;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
+use std::{collections::HashMap, sync::Arc, time::Duration};
+use tokio::{sync::Semaphore, time::sleep};
 
 use crate::{
     forecast::{
+        http::wait_for_report,
         model::Model,
         parser::{SingleWeatherForecast, parse_report},
     },
@@ -22,31 +25,98 @@ pub struct WeatherForecast {
     pub timestamps: Vec<SerializableDateTime>,
 }
 
-pub async fn fetch(station: &Station, model: &Model, ts: DateTime<Tz>) -> Result<WeatherForecast> {
-    let start = Instant::now();
+struct ForecastCycle {
+    ts: DateTime<Tz>,
+    max_lead_time: usize,
+    station: Station,
+    model: Model,
+}
 
-    let mut tasks = Vec::new();
-    for lead_time in 1..=12 {
-        let task = parse_report(station, model, ts, lead_time);
-        tasks.push(task);
-    }
-    let result = join_all(tasks).await;
-    let result = result
-        .into_iter()
-        .collect::<Result<Vec<SingleWeatherForecast>>>()?;
-
-    let mut temperatures = vec![];
-    let mut timestamps = vec![];
-    for forecast in result {
-        temperatures.push(forecast.temperature);
-        timestamps.push(forecast.timestamp.into());
+impl ForecastCycle {
+    pub fn new(station: Station, model: Model, ts: DateTime<Tz>, max_lead_time: usize) -> Self {
+        Self {
+            ts,
+            model,
+            station,
+            max_lead_time,
+        }
     }
 
-    let duration = start.elapsed(); // Measure elapsed time
-    println!("Fetching full forecast took: {:?}", duration);
+    async fn wait_and_parse_report(
+        &self,
+        lead_time: usize,
+        sem: Arc<Semaphore>,
+    ) -> Result<SingleWeatherForecast> {
+        let _permit = sem.acquire().await.expect("Unwrapping semaphore");
+        wait_for_report(&self.model, &self.ts, lead_time).await;
+        parse_report(&self.station, &self.model, &self.ts, lead_time).await
+    }
 
-    Ok(WeatherForecast {
-        timestamps,
-        temperatures,
-    })
+    pub fn fetch(&self) -> impl Stream<Item = Result<SingleWeatherForecast>> {
+        let semaphore = Arc::new(Semaphore::new(3)); // max 3 concurrent
+
+        let tasks = FuturesUnordered::new();
+        for lead_time in 0..self.max_lead_time {
+            let sem = semaphore.clone();
+            tasks.push(self.wait_and_parse_report(lead_time, sem));
+        }
+        tasks
+    }
+}
+
+pub struct ForecastFetcher {
+    state: HashMap<DateTime<Tz>, Temperature>,
+    station: Station,
+    model: Model,
+}
+
+impl From<HashMap<DateTime<Tz>, Temperature>> for WeatherForecast {
+    fn from(state: HashMap<DateTime<Tz>, Temperature>) -> Self {
+        let (timestamps, temperatures): (Vec<_>, Vec<_>) =
+            state.into_iter().map(|(k, v)| (k.into(), v)).unzip();
+        Self {
+            temperatures,
+            timestamps,
+        }
+    }
+}
+
+impl ForecastFetcher {
+    pub fn new(station: Station, model: Model) -> Self {
+        Self {
+            state: HashMap::new(),
+            station,
+            model,
+        }
+    }
+
+    pub fn fetch(&mut self) -> impl Stream<Item = WeatherForecast> {
+        let mut ts = Utc::now()
+            .with_timezone(&self.station.timezone())
+            .duration_round(TimeDelta::hours(1))
+            .unwrap()
+            - TimeDelta::hours(1);
+
+        stream! {
+            loop {
+                eprintln!("Waiting {ts}'s report");
+
+                let forecast_cycle =
+                    ForecastCycle::new(self.station.clone(), self.model.clone(), ts, 12);
+                let mut results =forecast_cycle.fetch() ;
+                while let Some(update) = results.next().await {
+                    match update {
+                        Ok(update) => {
+                            let _ = self.state.insert(update.timestamp, update.temperature);
+                            yield self.state.clone().into()
+                        },
+                        Err(err) => eprintln!("Error fetching forecast: {}", err)
+                    }
+                }
+
+                // Advance to the next report
+                ts += TimeDelta::hours(1);
+            }
+        }
+    }
 }

@@ -2,10 +2,12 @@ use anyhow::Result;
 use chrono::{TimeDelta, Utc};
 use chrono_tz::Tz;
 use clap::{Parser, Subcommand};
+use futures::StreamExt;
+use std::pin::pin;
 use weather::{
     forecast::{
-        model::Model,
-        parser::{ComputeOptions, parse_report_with_opts},
+        fetcher::ForecastFetcher,
+        model::{ComputeOptions, Model},
     },
     observations::{daily::NWSDailyObservationFetcher, hourly::NWSHourlyObservationsScraper},
     station::Station,
@@ -27,7 +29,7 @@ enum Commands {
         #[arg(value_enum, short, long)]
         compute_opts: Option<ComputeOptions>,
 
-        #[arg(long, default_value_t=Model::HRRR)]
+        #[arg(long, value_enum, default_value_t=Model::HRRR)]
         model: Model,
     },
     NWSHourlyObservation,
@@ -44,9 +46,11 @@ async fn main() -> Result<()> {
         } => {
             let compute_opts = compute_opts.unwrap_or(ComputeOptions::Precomputed);
             let ts = Utc::now().with_timezone(&Tz::America__New_York) - TimeDelta::hours(1);
-            let forecast =
-                parse_report_with_opts(&cli.station, &model, ts, 0, compute_opts).await?;
-            println!("{:?}", forecast);
+            let mut fetcher = ForecastFetcher::new(cli.station, model);
+            let mut result = pin!(fetcher.fetch());
+            while let Some(forecast) = result.next().await {
+                println!("{:?}", forecast);
+            }
         }
         Commands::NWSHourlyObservation => {
             let mut scraper = NWSHourlyObservationsScraper::new(cli.station, None).await?;

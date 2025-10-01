@@ -1,16 +1,18 @@
 use anyhow::{Result, anyhow};
 use bytes::Bytes;
-use chrono::{DateTime, Datelike, TimeDelta, Timelike};
-use chrono_tz::{Tz, UTC};
-use clap::ValueEnum;
+use chrono::{DateTime, TimeDelta};
+use chrono_tz::Tz;
 use grib::{Grib2, SeekableGrib2Reader, SubMessage};
-use reqwest::Client;
 use std::io::Cursor;
 
-use crate::{forecast::model::Model, station::Station, temperature::Temperature};
-
-static BASE: &str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod";
-static FORECAST_TYPE: &str = "wrfsfcf";
+use crate::{
+    forecast::{
+        http::get_report,
+        model::{ComputeOptions, Model},
+    },
+    station::Station,
+    temperature::Temperature,
+};
 
 const TEMPERATURE_NUMBER: u8 = 0;
 const SURFACE_TYPE: u8 = 103;
@@ -20,19 +22,7 @@ const METERS_ABOVE_GROUND: i32 = 2;
 pub struct SingleWeatherForecast {
     pub temperature: Temperature,
     pub timestamp: DateTime<Tz>,
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum ComputeOptions {
-    Compute,
-    Precomputed,
-}
-
-fn get_url(ts: DateTime<Tz>, lead_time: i64) -> String {
-    let utc = ts.with_timezone(&UTC);
-    let hh = format!("{:02}", utc.hour());
-    let date = format!("{:04}{:02}{:02}", utc.year(), utc.month(), utc.day());
-    format!("{BASE}/hrrr.{date}/conus/hrrr.t{hh}z.{FORECAST_TYPE}{lead_time:0>2}.grib2")
+    pub lead_time: usize,
 }
 
 fn find_message<'a>(
@@ -123,18 +113,11 @@ fn temp_closest_to_station<'a>(
 pub async fn parse_report_with_opts(
     station: &Station,
     model: &Model,
-    ts: DateTime<Tz>,
-    lead_time: i64,
+    ts: &DateTime<Tz>,
+    lead_time: usize,
     compute_opts: ComputeOptions,
 ) -> Result<SingleWeatherForecast> {
-    let client = Client::new();
-    let url = get_url(ts, lead_time);
-    let response = client.get(url).send().await?;
-    if !response.status().is_success() {
-        panic!("Failed to fetch: {}", response.status());
-    }
-
-    let bytes = response.bytes().await?;
+    let bytes = get_report(model, ts, lead_time).await?;
     let cursor = Cursor::new(&bytes);
 
     let grib2 = grib::from_reader(cursor)?;
@@ -142,15 +125,16 @@ pub async fn parse_report_with_opts(
     let temperature = temp_closest_to_station(station, model, submessage, compute_opts)?;
     Ok(SingleWeatherForecast {
         temperature,
-        timestamp: ts + TimeDelta::hours(lead_time),
+        timestamp: *ts + TimeDelta::hours(lead_time as i64),
+        lead_time,
     })
 }
 
 pub async fn parse_report(
     station: &Station,
     model: &Model,
-    ts: DateTime<Tz>,
-    lead_time: i64,
+    ts: &DateTime<Tz>,
+    lead_time: usize,
 ) -> Result<SingleWeatherForecast> {
     parse_report_with_opts(station, model, ts, lead_time, ComputeOptions::Precomputed).await
 }
