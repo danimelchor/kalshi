@@ -1,10 +1,10 @@
-use bincode::{Decode, Encode};
 use chrono_tz::{Tz, US::Eastern};
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
 use crate::coords::LatLon;
 
-#[derive(Debug, Copy, Clone, Decode, Encode, strum_macros::Display, ValueEnum)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, strum_macros::Display, ValueEnum)]
 pub enum Station {
     KNYC,
 }

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use futures::lock::Mutex;
 use futures::stream::{SelectAll, Stream, StreamExt, unfold};
 use serde::{Deserialize, Serialize};
@@ -12,6 +12,8 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
 };
+
+use crate::datetime::DateTimeZoned;
 
 #[derive(strum_macros::Display, Hash, PartialEq, Eq)]
 #[strum(serialize_all = "snake_case")]
@@ -32,7 +34,7 @@ impl ServiceName {
 pub struct Event<T> {
     id: u32,
     pub message: T,
-    pub ts: DateTime<Utc>,
+    pub ts: DateTimeZoned,
 }
 
 impl<T> Event<T> {
@@ -40,7 +42,7 @@ impl<T> Event<T> {
         Self {
             id,
             message,
-            ts: Utc::now(),
+            ts: Utc::now().into(),
         }
     }
 }
@@ -193,7 +195,7 @@ where
                     return None;
                 }
 
-                // Decode the message
+                // Deserialize the message
                 match bitcode::deserialize::<Event<T>>(&buf) {
                     Ok(event) => Some((Ok(event), stream)),
                     Err(e) => Some((

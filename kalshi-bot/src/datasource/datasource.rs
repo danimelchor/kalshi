@@ -1,19 +1,19 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use chrono::Utc;
 use futures::{Stream, StreamExt};
 use protocol::{
-    datetime::SerializableDateTime,
+    datetime::DateTimeZoned,
     protocol::{Event, ServiceName, ServicePublisher},
 };
 use std::pin::pin;
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DataSourceEvent<T> {
     pub data: T,
     pub is_republished: bool,
-    pub ts: SerializableDateTime,
+    pub ts: DateTimeZoned,
 }
 
 impl<T> DataSourceEvent<T> {
@@ -34,7 +34,7 @@ impl<T> DataSourceEvent<T> {
 #[async_trait]
 pub trait DataSource<T>
 where
-    T: Encode + Send + Sync,
+    T: Serialize + Send + Sync,
 {
     fn name() -> String;
     fn service_name() -> ServiceName;

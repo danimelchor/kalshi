@@ -1,19 +1,19 @@
 use anyhow::{Context, Result, anyhow};
-use bincode::{Decode, Encode};
 use chrono::{TimeDelta, Utc};
-use protocol::datetime::SerializableDateTime;
+use protocol::datetime::DateTimeZoned;
 use regex::Regex;
 use reqwest::Client;
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
 
 use crate::station::Station;
 use crate::temperature::Temperature;
 
 static PROD_BASE_URL: &str = "https://forecast.weather.gov/product.php";
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NWSDailyReport {
-    pub datetime: SerializableDateTime,
+    pub datetime: DateTimeZoned,
     pub station: Station,
     pub max_temperature: Temperature,
 }

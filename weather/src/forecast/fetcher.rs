@@ -1,10 +1,9 @@
 use anyhow::Result;
 use async_stream::stream;
-use bincode::{Decode, Encode};
 use chrono::{DateTime, DurationRound, TimeDelta, Utc};
 use chrono_tz::Tz;
 use futures::{Stream, StreamExt, stream::FuturesUnordered};
-use protocol::datetime::SerializableDateTime;
+use protocol::datetime::DateTimeZoned;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Semaphore;
@@ -19,9 +18,9 @@ use crate::{
     temperature::Temperature,
 };
 
-#[derive(Encode, Decode, Debug, Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TemperatureAtTime {
-    pub timestamp: SerializableDateTime,
+    pub timestamp: DateTimeZoned,
     pub temperature: Temperature,
 }
 
@@ -34,7 +33,7 @@ impl TemperatureAtTime {
     }
 }
 
-#[derive(Encode, Decode, Debug, Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WeatherForecast {
     pub temperatures_at_times: Vec<TemperatureAtTime>,
 }

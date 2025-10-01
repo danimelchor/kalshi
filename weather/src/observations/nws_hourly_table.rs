@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use chrono::{Datelike, Months, NaiveDate, NaiveTime, Utc};
-use protocol::datetime::SerializableDateTime;
+use protocol::datetime::DateTimeZoned;
 use reqwest::Client;
 use scraper::{Html, Selector};
 
@@ -10,15 +10,15 @@ use crate::temperature::Temperature;
 
 static PROD_BASE_URL: &str = "https://forecast.weather.gov/data/obhistory";
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NWSHourlyTableTemperature {
-    pub datetime: SerializableDateTime,
+    pub datetime: DateTimeZoned,
     pub station: Station,
     pub temperature: Temperature,
     pub six_hr_max_temperature: Option<Temperature>,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NWSHourlyTableTemperatures(pub Vec<NWSHourlyTableTemperature>);
 
 // Unfortunately the report's table has fancy headers which means that len(headers) != len(row)

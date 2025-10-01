@@ -1,9 +1,9 @@
 use anyhow::{Result, anyhow};
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use chrono::Datelike;
 use fantoccini::error::CmdError;
 use fantoccini::{Client, ClientBuilder, Locator};
-use protocol::datetime::SerializableDateTime;
+use protocol::datetime::DateTimeZoned;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -12,15 +12,15 @@ use crate::temperature::Temperature;
 
 static PROD_BASE_URL: &str = "https://www.weather.gov/wrh/timeseries";
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NWSHourlyTimeseriesTemperature {
-    pub datetime: SerializableDateTime,
+    pub datetime: DateTimeZoned,
     pub station: Station,
     pub temperature: Temperature,
     pub six_hr_max_temperature: Option<Temperature>,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NWSHourlyTimeseriesTemperatures(pub Vec<NWSHourlyTimeseriesTemperature>);
 
 fn clean_col(name: &str) -> String {

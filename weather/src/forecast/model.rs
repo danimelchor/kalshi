@@ -1,8 +1,8 @@
 use crate::station::Station;
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use clap::ValueEnum;
 
-#[derive(Debug, Copy, Clone, Decode, Encode, strum_macros::Display, ValueEnum)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, strum_macros::Display, ValueEnum)]
 pub enum Model {
     HRRR,
 }
