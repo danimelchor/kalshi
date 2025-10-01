@@ -6,10 +6,7 @@ use grib::{Grib2, SeekableGrib2Reader, SubMessage};
 use std::io::Cursor;
 
 use crate::{
-    forecast::{
-        http::get_report,
-        model::{ComputeOptions, Model},
-    },
+    forecast::model::{ComputeOptions, Model},
     station::Station,
     temperature::Temperature,
 };
@@ -111,15 +108,14 @@ fn temp_closest_to_station<'a>(
 }
 
 pub async fn parse_report_with_opts(
+    bytes: Bytes,
     station: &Station,
     model: &Model,
     ts: &DateTime<Tz>,
     lead_time: usize,
     compute_opts: ComputeOptions,
 ) -> Result<SingleWeatherForecast> {
-    let bytes = get_report(model, ts, lead_time).await?;
     let cursor = Cursor::new(&bytes);
-
     let grib2 = grib::from_reader(cursor)?;
     let submessage = find_message(&grib2)?;
     let temperature = temp_closest_to_station(station, model, submessage, compute_opts)?;

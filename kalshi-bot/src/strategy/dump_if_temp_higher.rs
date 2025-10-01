@@ -2,16 +2,18 @@ use crate::strategy::strategy::Strategy;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use protocol::protocol::{Event, MultiServiceSubscriber, ServiceName};
-use weather::observations::{daily::NWSDailyReport, hourly::NWSHourlyTemperatures};
+use weather::observations::{
+    nws_daily_report::NWSDailyReport, nws_hourly_timeseries::NWSHourlyTimeseriesTemperatures,
+};
 
 #[derive(Debug)]
 pub enum WeatherEvents {
-    HourlyWeatherObservation(Event<NWSHourlyTemperatures>),
+    HourlyWeatherObservation(Event<NWSHourlyTimeseriesTemperatures>),
     DailyWeatherObservations(Event<NWSDailyReport>),
 }
 
-impl From<Event<NWSHourlyTemperatures>> for WeatherEvents {
-    fn from(event: Event<NWSHourlyTemperatures>) -> Self {
+impl From<Event<NWSHourlyTimeseriesTemperatures>> for WeatherEvents {
+    fn from(event: Event<NWSHourlyTimeseriesTemperatures>) -> Self {
         WeatherEvents::HourlyWeatherObservation(event)
     }
 }
@@ -30,7 +32,9 @@ impl Strategy<WeatherEvents> for DumpIfTempHigher {
     async fn run(&mut self, date: &NaiveDate) -> tokio::io::Result<()> {
         let mut client = MultiServiceSubscriber::<WeatherEvents>::default();
         client
-            .add_subscription::<NWSHourlyTemperatures>(ServiceName::HourlyWeatherObservations)
+            .add_subscription::<NWSHourlyTimeseriesTemperatures>(
+                ServiceName::HourlyWeatherObservations,
+            )
             .await?;
         client
             .add_subscription::<NWSDailyReport>(ServiceName::DailyWeatherObservations)

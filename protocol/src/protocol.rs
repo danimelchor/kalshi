@@ -1,7 +1,8 @@
-use bincode::{self, Decode, Encode, encode_to_vec};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
+use chrono_tz::Tz;
 use futures::lock::Mutex;
 use futures::stream::{SelectAll, Stream, StreamExt, unfold};
+use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::{marker::PhantomData, path::Path};
@@ -12,8 +13,6 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
 };
-
-use crate::datetime::SerializableDateTime;
 
 #[derive(strum_macros::Display, Hash, PartialEq, Eq)]
 #[strum(serialize_all = "snake_case")]
@@ -30,11 +29,11 @@ impl ServiceName {
     }
 }
 
-#[derive(Debug, Decode, Encode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Event<T> {
     id: u32,
     pub message: T,
-    pub ts: SerializableDateTime,
+    pub ts: DateTime<Utc>,
 }
 
 impl<T> Event<T> {
@@ -42,7 +41,7 @@ impl<T> Event<T> {
         Self {
             id,
             message,
-            ts: Utc::now().into(),
+            ts: Utc::now(),
         }
     }
 }
@@ -55,7 +54,7 @@ pub struct ServicePublisher<T> {
 
 impl<T> ServicePublisher<T>
 where
-    T: Encode,
+    T: Serialize,
 {
     pub async fn new(service_name: ServiceName) -> tokio::io::Result<Self> {
         let path = service_name.unix_path();
@@ -88,7 +87,7 @@ where
     }
 
     pub async fn publish(&mut self, event: &Event<T>) -> tokio::io::Result<()> {
-        let buf = encode_to_vec(event, bincode::config::standard()).unwrap();
+        let buf = bitcode::serialize(event).unwrap();
         let len = buf.len() as u32;
 
         let mut clients = self.clients.lock().await;
@@ -126,7 +125,7 @@ pub struct ServiceSubscriber<T> {
 
 impl<T> ServiceSubscriber<T>
 where
-    T: Decode<()> + Send + Sync + 'static,
+    T: for<'de> Deserialize<'de> + Send + Sync + 'static,
 {
     pub async fn new(service: ServiceName) -> tokio::io::Result<Self> {
         let stream = ServiceSubscriber::<T>::subscribe(&service).await?;
@@ -196,8 +195,8 @@ where
                 }
 
                 // Decode the message
-                match bincode::decode_from_slice::<Event<T>, _>(&buf, bincode::config::standard()) {
-                    Ok((event, _)) => Some((Ok(event), stream)),
+                match bitcode::deserialize::<Event<T>>(&buf) {
+                    Ok((event)) => Some((Ok(event), stream)),
                     Err(e) => Some((
                         Err(Box::new(e) as Box<dyn std::error::Error + Send + Sync>),
                         stream,
@@ -223,7 +222,7 @@ impl<E> Default for MultiServiceSubscriber<E> {
 impl<E> MultiServiceSubscriber<E> {
     pub async fn add_subscription<T>(&mut self, service: ServiceName) -> tokio::io::Result<()>
     where
-        T: Decode<()> + Send + Sync + 'static,
+        T: for<'de> Deserialize<'de> + Send + Sync + 'static,
         Event<T>: Into<E>,
     {
         let subscriber = ServiceSubscriber::<T>::new(service).await?;

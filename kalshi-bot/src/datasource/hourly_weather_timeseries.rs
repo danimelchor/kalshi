@@ -7,24 +7,26 @@ use futures::Stream;
 use protocol::protocol::ServiceName;
 use tokio::time::sleep;
 use weather::{
-    observations::hourly::{NWSHourlyObservationsScraper, NWSHourlyTemperatures},
+    observations::nws_hourly_timeseries::{
+        NWSHourlyTimeseriesScraper, NWSHourlyTimeseriesTemperatures,
+    },
     station::Station,
 };
 
-pub struct HourlyWeatherObservationDataSource {
-    scraper: NWSHourlyObservationsScraper,
+pub struct HourlyWeatherTimeseriesSource {
+    scraper: NWSHourlyTimeseriesScraper,
 }
 
-impl HourlyWeatherObservationDataSource {
+impl HourlyWeatherTimeseriesSource {
     pub async fn new(station: Station) -> Result<Self> {
-        let scraper = NWSHourlyObservationsScraper::new(station, None)
+        let scraper = NWSHourlyTimeseriesScraper::new(station, None)
             .await
             .context("unable to start scraper")?;
         Ok(Self { scraper })
     }
 }
 
-impl DataSource<NWSHourlyTemperatures> for HourlyWeatherObservationDataSource {
+impl DataSource<NWSHourlyTimeseriesTemperatures> for HourlyWeatherTimeseriesSource {
     fn name() -> String {
         "Weather Forecast".into()
     }
@@ -33,7 +35,7 @@ impl DataSource<NWSHourlyTemperatures> for HourlyWeatherObservationDataSource {
         ServiceName::HourlyWeatherObservations
     }
 
-    fn fetch_data(&mut self) -> impl Stream<Item = Result<NWSHourlyTemperatures>> + Send {
+    fn fetch_data(&mut self) -> impl Stream<Item = Result<NWSHourlyTimeseriesTemperatures>> + Send {
         stream! {
             loop {
 

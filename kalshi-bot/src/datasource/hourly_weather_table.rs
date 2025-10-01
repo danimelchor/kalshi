@@ -6,22 +6,22 @@ use protocol::protocol::ServiceName;
 use std::time::Duration;
 use tokio::time::sleep;
 use weather::{
-    observations::daily::{NWSDailyObservationFetcher, NWSDailyReport},
+    observations::nws_daily_report::{NWSDailyReport, NWSDailyReportFetcher},
     station::Station,
 };
 
-pub struct DailyWeatherObservationDataSource {
-    fetcher: NWSDailyObservationFetcher,
+pub struct HourlyWeatherTableSource {
+    fetcher: NWSDailyReportFetcher,
 }
 
-impl DailyWeatherObservationDataSource {
+impl HourlyWeatherTableSource {
     pub fn new(station: Station) -> Self {
-        let fetcher = NWSDailyObservationFetcher::new(station, None);
+        let fetcher = NWSDailyReportFetcher::new(station, None);
         Self { fetcher }
     }
 }
 
-impl DataSource<NWSDailyReport> for DailyWeatherObservationDataSource {
+impl DataSource<NWSDailyReport> for HourlyWeatherTableSource {
     fn name() -> String {
         "Weather Forecast".into()
     }

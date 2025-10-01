@@ -56,13 +56,13 @@ impl NWSDailyReport {
     }
 }
 
-pub struct NWSDailyObservationFetcher {
+pub struct NWSDailyReportFetcher {
     station: Station,
     base_url: String,
     client: Client,
 }
 
-impl NWSDailyObservationFetcher {
+impl NWSDailyReportFetcher {
     pub fn new(station: Station, base_url: Option<&str>) -> Self {
         let base_url = base_url.unwrap_or(PROD_BASE_URL);
         let client = Client::new();

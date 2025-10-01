@@ -11,7 +11,7 @@ use tokio::sync::Semaphore;
 
 use crate::{
     forecast::{
-        http::wait_for_report,
+        http::{get_report, wait_for_report},
         model::{ComputeOptions, Model},
         parser::{SingleWeatherForecast, parse_report_with_opts},
     },
@@ -69,9 +69,15 @@ impl ForecastCycle {
         lead_time: usize,
         sem: Arc<Semaphore>,
     ) -> Result<SingleWeatherForecast> {
-        let _permit = sem.acquire().await.expect("Unwrapping semaphore");
+        let permit = sem.acquire().await.expect("Unwrapping semaphore");
         wait_for_report(&self.model, &self.ts, lead_time).await;
+        let bytes = get_report(&self.model, &self.ts, lead_time).await?;
+
+        // Parsing the report can be done while we download the next one
+        drop(permit);
+
         parse_report_with_opts(
+            bytes,
             &self.station,
             &self.model,
             &self.ts,

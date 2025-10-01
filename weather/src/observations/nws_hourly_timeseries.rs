@@ -13,7 +13,7 @@ use crate::temperature::Temperature;
 static PROD_BASE_URL: &str = "https://www.weather.gov/wrh/timeseries";
 
 #[derive(Debug, Encode, Decode)]
-pub struct NWSHourlyTemperature {
+pub struct NWSHourlyTimeseriesTemperature {
     pub datetime: SerializableDateTime,
     pub station: Station,
     pub temperature: Temperature,
@@ -21,7 +21,7 @@ pub struct NWSHourlyTemperature {
 }
 
 #[derive(Debug, Encode, Decode)]
-pub struct NWSHourlyTemperatures(pub Vec<NWSHourlyTemperature>);
+pub struct NWSHourlyTimeseriesTemperatures(pub Vec<NWSHourlyTimeseriesTemperature>);
 
 fn clean_col(name: &str) -> String {
     let re_non_alnum = regex::Regex::new(r"[^a-zA-Z0-9 ]").unwrap();
@@ -46,7 +46,7 @@ fn maybe_to_float(val: Option<&String>) -> Option<f32> {
     val.and_then(|v| to_float(v).ok())
 }
 
-impl NWSHourlyTemperature {
+impl NWSHourlyTimeseriesTemperature {
     pub fn from_row(station: Station, row: &HashMap<String, String>) -> Result<Self, String> {
         // Parse date
         let year = chrono::Local::now().year();
@@ -62,7 +62,7 @@ impl NWSHourlyTemperature {
         let temp_f = to_float(row.get("temp_f").unwrap()).map_err(|e| e.to_string())?;
         let six_hr_max_f = maybe_to_float(row.get("6_hr_max_f")).map(Temperature::Fahrenheit);
 
-        Ok(NWSHourlyTemperature {
+        Ok(NWSHourlyTimeseriesTemperature {
             datetime: dt.into(),
             station,
             temperature: Temperature::Fahrenheit(temp_f),
@@ -71,7 +71,7 @@ impl NWSHourlyTemperature {
     }
 }
 
-pub struct NWSHourlyObservationsScraper {
+pub struct NWSHourlyTimeseriesScraper {
     station: Station,
     base_url: String,
     client: Client,
@@ -102,7 +102,7 @@ async fn connect_with_retries() -> Result<Client> {
     unreachable!()
 }
 
-impl NWSHourlyObservationsScraper {
+impl NWSHourlyTimeseriesScraper {
     pub async fn new(station: Station, base_url: Option<&str>) -> Result<Self> {
         let base_url = base_url.unwrap_or(PROD_BASE_URL);
         let client = connect_with_retries().await?;
@@ -129,7 +129,7 @@ impl NWSHourlyObservationsScraper {
         format!("{}?{}", self.base_url, query)
     }
 
-    pub async fn scrape(&mut self) -> Result<NWSHourlyTemperatures> {
+    pub async fn scrape(&mut self) -> Result<NWSHourlyTimeseriesTemperatures> {
         self.client.goto(&self.url()).await?;
 
         let table = self
@@ -163,12 +163,12 @@ impl NWSHourlyObservationsScraper {
         let mut result = Vec::new();
         for row in rows.into_iter().rev() {
             let map: HashMap<_, _> = self.headers_cache.iter().cloned().zip(row).collect();
-            if let Ok(temp) = NWSHourlyTemperature::from_row(self.station, &map) {
+            if let Ok(temp) = NWSHourlyTimeseriesTemperature::from_row(self.station, &map) {
                 result.push(temp);
             }
         }
 
-        Ok(NWSHourlyTemperatures(result))
+        Ok(NWSHourlyTimeseriesTemperatures(result))
     }
 
     pub async fn close(self) -> Result<(), CmdError> {

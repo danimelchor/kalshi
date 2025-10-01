@@ -17,9 +17,9 @@ clap = { version = "4.5.48", features = ["derive"] }
 
 weather = { path = "../weather" }
 protocol = { path = "../protocol" }
-bincode = { version = "2.0.1", features = ["derive"] }
 anyhow = "1.0.100"
 tera = "1.20.0"
 colored = "3.0.0"
 async-stream = "0.3.6"
-chrono-tz = "0.10.4"
+chrono-tz = { version = "0.10.4", features = ["serde"] }
+bitcode = { version = "0.6.7", features = ["derive", "serde"] }
