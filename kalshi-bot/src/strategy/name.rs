@@ -1,6 +1,9 @@
 use clap::ValueEnum;
+use strum::Display;
+use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, ValueEnum, Display, EnumIter)]
+#[strum(serialize_all = "kebab-case")]
 pub enum StrategyName {
     ForecastNotifier,
     DumpIfTempHigher,

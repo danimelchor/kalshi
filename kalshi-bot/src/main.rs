@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use kalshi_bot::{
     datasource::{DataSourceCommand, run_data_source},
     strategy::{StrategyCommand, run_strategy},
-    system::start_system,
+    system::{SystemCommand, start_system},
 };
 
 #[derive(Parser)]
@@ -17,7 +17,7 @@ struct Cli {
 enum Commands {
     DataSource(DataSourceCommand),
     Strategy(StrategyCommand),
-    System,
+    System(SystemCommand),
 }
 
 #[tokio::main]
@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
     match &cli.command {
         Commands::DataSource(subcommand) => run_data_source(subcommand).await?,
         Commands::Strategy(subcommand) => run_strategy(subcommand).await?,
-        Commands::System => start_system().await?,
+        Commands::System(subcommand) => start_system(subcommand).await?,
     }
 
     Ok(())

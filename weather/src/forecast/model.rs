@@ -1,6 +1,6 @@
 use crate::station::Station;
-use serde::{Deserialize, Serialize};
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize, strum_macros::Display, ValueEnum)]
 pub enum Model {
@@ -10,7 +10,7 @@ pub enum Model {
 impl Model {
     pub fn computed_grid_location_and_info(
         &self,
-        station: &Station,
+        station: Station,
     ) -> ((usize, usize), (usize, usize)) {
         match (self, station) {
             (Model::HRRR, Station::KNYC) => ((1553, 698), (1799, 1059)),

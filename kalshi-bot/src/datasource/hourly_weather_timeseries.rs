@@ -32,7 +32,7 @@ impl DataSource<NWSHourlyTimeseriesTemperatures> for HourlyWeatherTimeseriesSour
     }
 
     fn service_name() -> ServiceName {
-        ServiceName::HourlyWeatherObservations
+        ServiceName::HourlyWeatherTimeseries
     }
 
     fn fetch_data(&mut self) -> impl Stream<Item = Result<NWSHourlyTimeseriesTemperatures>> + Send {

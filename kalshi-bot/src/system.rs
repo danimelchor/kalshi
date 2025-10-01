@@ -1,9 +1,12 @@
-use std::time::Duration;
-
+use crate::{datasource::name::DataSourceName, strategy::name::StrategyName};
 use anyhow::{Context, Result};
+use chrono::NaiveDate;
+use clap::Args;
 use colored::{Color, Colorize};
 use futures::future::join_all;
 use std::process::Stdio;
+use std::time::Duration;
+use strum::IntoEnumIterator;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
@@ -13,10 +16,10 @@ use tokio::{
 
 struct CommandSpec {
     cmd: String,
-    args: Vec<&'static str>,
+    args: Vec<String>,
     delay_secs: Option<u64>,
     color: Color,
-    name: &'static str,
+    name: String,
 }
 
 fn run_in_subprocess(service: CommandSpec) -> JoinHandle<Result<()>> {
@@ -74,7 +77,13 @@ fn run_in_subprocess(service: CommandSpec) -> JoinHandle<Result<()>> {
     })
 }
 
-pub async fn start_system() -> Result<()> {
+#[derive(Debug, Clone, Args)]
+pub struct SystemCommand {
+    #[arg(short, long)]
+    date: NaiveDate,
+}
+
+pub async fn start_system(command: &SystemCommand) -> Result<()> {
     // Get the current executable's path
     let exe = std::env::current_exe()
         .unwrap()
@@ -82,50 +91,38 @@ pub async fn start_system() -> Result<()> {
         .unwrap()
         .to_string();
 
-    let services = vec![
-        CommandSpec {
-            cmd: "geckodriver".into(),
-            args: vec!["--log", "error"],
-            delay_secs: None,
-            color: Color::Blue,
-            name: "geckodriver",
-        },
-        CommandSpec {
+    let mut services = vec![CommandSpec {
+        cmd: "geckodriver".into(),
+        args: vec!["--log".into(), "error".into()],
+        delay_secs: None,
+        color: Color::Blue,
+        name: "geckodriver".into(),
+    }];
+
+    for data_source in DataSourceName::iter() {
+        services.push(CommandSpec {
             cmd: exe.clone(),
-            args: vec!["data-source", "nws-daily-observations"],
+            args: vec!["data-source".into(), data_source.to_string()],
             delay_secs: None,
             color: Color::Green,
-            name: "nws-daily-observations",
-        },
-        CommandSpec {
+            name: data_source.to_string(),
+        })
+    }
+
+    for strategy in StrategyName::iter() {
+        services.push(CommandSpec {
             cmd: exe.clone(),
-            args: vec!["data-source", "nws-hourly-observations"],
-            delay_secs: Some(2),
-            color: Color::Yellow,
-            name: "nws-hourly-observations",
-        },
-        CommandSpec {
-            cmd: exe.clone(),
-            args: vec!["data-source", "weather-forecast"],
-            delay_secs: None,
-            color: Color::Magenta,
-            name: "weather-forecast",
-        },
-        CommandSpec {
-            cmd: exe.clone(),
-            args: vec!["strategy", "dump-if-temp-higher"],
+            args: vec![
+                "strategy".into(),
+                strategy.to_string(),
+                "--date".into(),
+                command.date.to_string(),
+            ],
             delay_secs: Some(4),
             color: Color::Cyan,
-            name: "dump-if-temp-higher",
-        },
-        CommandSpec {
-            cmd: exe.clone(),
-            args: vec!["strategy", "forecast-notifier"],
-            delay_secs: Some(4),
-            color: Color::BrightYellow,
-            name: "forecast-notifier",
-        },
-    ];
+            name: strategy.to_string(),
+        })
+    }
     let handles: Vec<_> = services.into_iter().map(run_in_subprocess).collect();
 
     let results = join_all(handles).await;

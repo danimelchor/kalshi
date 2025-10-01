@@ -33,11 +33,11 @@ impl Strategy<WeatherEvents> for DumpIfTempHigher {
         let mut client = MultiServiceSubscriber::<WeatherEvents>::default();
         client
             .add_subscription::<NWSHourlyTimeseriesTemperatures>(
-                ServiceName::HourlyWeatherObservations,
+                ServiceName::HourlyWeatherTimeseries,
             )
             .await?;
         client
-            .add_subscription::<NWSDailyReport>(ServiceName::DailyWeatherObservations)
+            .add_subscription::<NWSDailyReport>(ServiceName::DailyWeatherReport)
             .await?;
 
         client

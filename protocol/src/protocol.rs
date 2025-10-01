@@ -19,8 +19,9 @@ use crate::datetime::DateTimeZoned;
 #[strum(serialize_all = "snake_case")]
 pub enum ServiceName {
     WeatherForecast,
-    HourlyWeatherObservations,
-    DailyWeatherObservations,
+    HourlyWeatherTimeseries,
+    HourlyWeatherTable,
+    DailyWeatherReport,
 }
 
 impl ServiceName {

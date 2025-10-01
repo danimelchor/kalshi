@@ -5,7 +5,7 @@ pub mod hourly_weather_timeseries;
 pub mod name;
 pub mod weather_forecast;
 
-use crate::datasource::name::DataSourceName;
+use crate::datasource::{hourly_weather_table::HourlyWeatherTableSource, name::DataSourceName};
 use anyhow::Result;
 use clap::Args;
 use daily_weather_report::DailyWeatherReportSource;
@@ -25,11 +25,15 @@ pub async fn run_data_source(command: &DataSourceCommand) -> Result<()> {
             let mut source = WeatherForecastDataSource::new(Station::KNYC, Model::HRRR);
             source.run().await.unwrap()
         }
-        DataSourceName::NwsHourlyObservations => {
+        DataSourceName::NwsHourlyTimeseries => {
             let mut source = HourlyWeatherTimeseriesSource::new(Station::KNYC).await?;
             source.run().await.unwrap()
         }
-        DataSourceName::NwsDailyObservations => {
+        DataSourceName::NwsHourlyTable => {
+            let mut source = HourlyWeatherTableSource::new(Station::KNYC);
+            source.run().await.unwrap()
+        }
+        DataSourceName::NwsDailyReport => {
             let mut source = DailyWeatherReportSource::new(Station::KNYC);
             source.run().await.unwrap()
         }

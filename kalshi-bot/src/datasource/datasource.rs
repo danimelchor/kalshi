@@ -1,12 +1,12 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use chrono::Utc;
 use futures::{Stream, StreamExt};
 use protocol::{
     datetime::DateTimeZoned,
     protocol::{Event, ServiceName, ServicePublisher},
 };
+use serde::{Deserialize, Serialize};
 use std::pin::pin;
 
 #[derive(Debug, Serialize, Deserialize)]

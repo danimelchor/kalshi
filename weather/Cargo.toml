@@ -25,3 +25,4 @@ serde = "1.0.228"
 async-stream = "0.3.6"
 bitcode = { version = "0.6.7", features = ["derive", "serde"] }
 chrono-tz = { version = "0.10.4", features = ["serde"] }
+serde_with = "3.14.1"

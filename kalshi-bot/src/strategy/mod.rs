@@ -14,6 +14,8 @@ use clap::Args;
 #[derive(Debug, Clone, Args)]
 pub struct StrategyCommand {
     name: StrategyName,
+
+    #[arg(short, long)]
     date: NaiveDate,
 }
 

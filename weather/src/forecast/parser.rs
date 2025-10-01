@@ -54,8 +54,8 @@ fn find_message<'a>(
 }
 
 fn temp_closest_to_station<'a>(
-    station: &Station,
-    model: &Model,
+    station: Station,
+    model: Model,
     submessage: SubMessage<'a, SeekableGrib2Reader<Cursor<&'a Bytes>>>,
     compute_opts: ComputeOptions,
 ) -> Result<Temperature> {
@@ -107,11 +107,11 @@ fn temp_closest_to_station<'a>(
     Ok(Temperature::Kelvin(temp_kelvin).to_fahrenheit())
 }
 
-pub async fn parse_report_with_opts(
+pub fn parse_report_with_opts(
     bytes: Bytes,
-    station: &Station,
-    model: &Model,
-    ts: &DateTime<Tz>,
+    station: Station,
+    model: Model,
+    ts: DateTime<Tz>,
     lead_time: usize,
     compute_opts: ComputeOptions,
 ) -> Result<SingleWeatherForecast> {
@@ -121,7 +121,7 @@ pub async fn parse_report_with_opts(
     let temperature = temp_closest_to_station(station, model, submessage, compute_opts)?;
     Ok(SingleWeatherForecast {
         temperature,
-        timestamp: *ts + TimeDelta::hours(lead_time as i64),
+        timestamp: ts + TimeDelta::hours(lead_time as i64),
         _lead_time: lead_time,
     })
 }

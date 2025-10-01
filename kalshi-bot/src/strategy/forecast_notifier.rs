@@ -6,7 +6,9 @@ use chrono_tz::Tz;
 use protocol::protocol::Event;
 use protocol::protocol::MultiServiceSubscriber;
 use protocol::protocol::ServiceName;
-use weather::forecast::fetcher::{TemperatureAtTime, WeatherForecast};
+use std::collections::BTreeMap;
+use weather::forecast::fetcher::WeatherForecast;
+use weather::temperature::Temperature;
 
 #[derive(Debug)]
 pub enum WeatherEvents {
@@ -21,7 +23,7 @@ impl From<Event<WeatherForecast>> for WeatherEvents {
 
 #[derive(Default)]
 pub struct ForecastNotifier {
-    max_temperature: Option<TemperatureAtTime>,
+    forecast: BTreeMap<DateTime<Tz>, Temperature>,
 }
 
 #[async_trait]
@@ -35,22 +37,19 @@ impl Strategy<WeatherEvents> for ForecastNotifier {
         let _event_listener = client
             .listen_all(|event| match event {
                 WeatherEvents::WeatherForecast(data) => {
-                    if let Some(max_temp) = data
+                    let forecast: BTreeMap<DateTime<Tz>, Temperature> = data
                         .message
-                        .temperatures_at_times
+                        .0
                         .into_iter()
-                        .filter(|t| {
-                            let dt: DateTime<Tz> = t.timestamp.clone().into();
+                        .filter(|(k, _)| {
+                            let dt: DateTime<Tz> = (*k).into();
                             dt.date_naive() == *date
                         })
-                        .max_by(|t1, t2| t1.temperature.partial_cmp(&t2.temperature).unwrap())
-                    {
-                        self.max_temperature = Some(max_temp);
-                        println!(
-                            "Weather forecast max temperature: {:?}",
-                            self.max_temperature
-                        );
-                    }
+                        .map(|(k, v)| (k.into(), v))
+                        .collect();
+
+                    self.forecast.extend(forecast);
+                    println!("Weather forecast: {:?}", self.forecast);
                 }
             })
             .await;

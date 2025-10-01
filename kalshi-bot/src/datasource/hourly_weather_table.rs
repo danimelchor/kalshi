@@ -27,7 +27,7 @@ impl DataSource<NWSDailyReport> for HourlyWeatherTableSource {
     }
 
     fn service_name() -> ServiceName {
-        ServiceName::DailyWeatherObservations
+        ServiceName::HourlyWeatherTable
     }
 
     fn fetch_data(&mut self) -> impl Stream<Item = Result<NWSDailyReport>> + Send {

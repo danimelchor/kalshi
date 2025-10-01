@@ -5,7 +5,7 @@ use chrono_tz::Tz;
 use futures::{Stream, StreamExt, stream::FuturesUnordered};
 use protocol::datetime::DateTimeZoned;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::Semaphore;
 
 use crate::{
@@ -19,24 +19,10 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TemperatureAtTime {
-    pub timestamp: DateTimeZoned,
-    pub temperature: Temperature,
-}
-
-impl TemperatureAtTime {
-    fn new(timestamp: DateTime<Tz>, temperature: Temperature) -> Self {
-        Self {
-            timestamp: timestamp.into(),
-            temperature,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct WeatherForecast {
-    pub temperatures_at_times: Vec<TemperatureAtTime>,
-}
+pub struct WeatherForecast(
+    #[serde(with = "serde_with::rust::maps_duplicate_key_is_error")]
+    pub  BTreeMap<DateTimeZoned, Temperature>,
+);
 
 struct ForecastCycle {
     ts: DateTime<Tz>,
@@ -75,19 +61,18 @@ impl ForecastCycle {
         // Parsing the report can be done while we download the next one
         drop(permit);
 
-        parse_report_with_opts(
-            bytes,
-            &self.station,
-            &self.model,
-            &self.ts,
-            lead_time,
-            self.compute_options,
-        )
-        .await
+        let station = self.station;
+        let model = self.model;
+        let ts = self.ts;
+        let compute_options = self.compute_options;
+        tokio::task::spawn_blocking(move || {
+            parse_report_with_opts(bytes, station, model, ts, lead_time, compute_options)
+        })
+        .await?
     }
 
     pub fn fetch(&self) -> impl Stream<Item = Result<SingleWeatherForecast>> {
-        let semaphore = Arc::new(Semaphore::new(3)); // max 3 concurrent
+        let semaphore = Arc::new(Semaphore::new(4));
 
         let tasks = FuturesUnordered::new();
         for lead_time in 0..self.max_lead_time {
@@ -99,22 +84,20 @@ impl ForecastCycle {
 }
 
 pub struct ForecastFetcher {
-    state: HashMap<DateTime<Tz>, Temperature>,
+    state: BTreeMap<DateTime<Tz>, Temperature>,
     station: Station,
     model: Model,
     max_lead_time: usize,
     compute_options: ComputeOptions,
 }
 
-impl From<HashMap<DateTime<Tz>, Temperature>> for WeatherForecast {
-    fn from(state: HashMap<DateTime<Tz>, Temperature>) -> Self {
-        let temperatures_at_times: Vec<_> = state
+impl From<BTreeMap<DateTime<Tz>, Temperature>> for WeatherForecast {
+    fn from(state: BTreeMap<DateTime<Tz>, Temperature>) -> Self {
+        let inner: BTreeMap<_, _> = state
             .into_iter()
-            .map(|(time, temp)| TemperatureAtTime::new(time, temp))
+            .map(|(time, temp)| (time.into(), temp))
             .collect();
-        Self {
-            temperatures_at_times,
-        }
+        Self(inner)
     }
 }
 
@@ -128,7 +111,7 @@ impl ForecastFetcher {
         let compute_options = compute_options.unwrap_or(ComputeOptions::Precomputed);
         Self {
             compute_options,
-            state: HashMap::new(),
+            state: BTreeMap::new(),
             max_lead_time,
             station,
             model,
