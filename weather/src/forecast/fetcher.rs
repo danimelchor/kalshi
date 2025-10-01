@@ -2,6 +2,7 @@ use anyhow::Result;
 use async_stream::stream;
 use chrono::{DateTime, DurationRound, TimeDelta, Utc};
 use chrono_tz::Tz;
+use core::num;
 use futures::{Stream, StreamExt, stream::FuturesUnordered};
 use protocol::datetime::DateTimeZoned;
 use serde::{Deserialize, Serialize};
@@ -95,18 +96,18 @@ pub struct ForecastFetcher {
 }
 
 impl WeatherForecast {
-    fn new(
-        state: BTreeMap<DateTime<Tz>, Temperature>,
-        complete: bool,
-        max_lead_time: usize,
-    ) -> Self {
+    fn new(state: BTreeMap<DateTime<Tz>, Temperature>, max_lead_time: usize) -> Self {
         let forecast: BTreeMap<_, _> = state
             .into_iter()
             .map(|(time, temp)| (time.into(), temp))
             .collect();
+
+        let num_lead_times = forecast.len();
+        let total_lead_times = max_lead_time;
+        let complete = num_lead_times == total_lead_times;
         Self {
-            num_lead_times: forecast.len(),
-            total_lead_times: max_lead_time,
+            num_lead_times,
+            total_lead_times,
             forecast,
             complete,
         }
@@ -148,15 +149,12 @@ impl ForecastFetcher {
                     self.max_lead_time
                 );
                 let mut results = forecast_cycle.fetch() ;
-                let mut total = 0;
                 while let Some(update) = results.next().await {
-                    total += 1;
                     match update {
                         Ok(update) => {
                             let _ = self.state.insert(update.timestamp, update.temperature);
                             let forecast = WeatherForecast::new(
                                 self.state.clone(),
-                                total == self.max_lead_time,
                                 self.max_lead_time,
                             );
                             yield Ok(forecast)
