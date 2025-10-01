@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
 use chrono::{Datelike, Months, NaiveDate, NaiveTime, Utc};
 use protocol::datetime::DateTimeZoned;
 use reqwest::Client;
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
 
 use crate::station::Station;
 use crate::temperature::Temperature;

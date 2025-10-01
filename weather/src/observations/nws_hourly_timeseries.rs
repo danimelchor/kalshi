@@ -1,9 +1,9 @@
 use anyhow::{Result, anyhow};
-use serde::{Deserialize, Serialize};
 use chrono::Datelike;
 use fantoccini::error::CmdError;
 use fantoccini::{Client, ClientBuilder, Locator};
 use protocol::datetime::DateTimeZoned;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 

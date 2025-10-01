@@ -23,6 +23,7 @@ pub struct WeatherForecast {
     #[serde(with = "serde_with::rust::maps_duplicate_key_is_error")]
     pub forecast: BTreeMap<DateTimeZoned, Temperature>,
     pub complete: bool,
+    pub max_lead_time: usize,
 }
 
 struct ForecastCycle {
@@ -93,12 +94,20 @@ pub struct ForecastFetcher {
 }
 
 impl WeatherForecast {
-    fn new(state: BTreeMap<DateTime<Tz>, Temperature>, complete: bool) -> Self {
+    fn new(
+        state: BTreeMap<DateTime<Tz>, Temperature>,
+        complete: bool,
+        max_lead_time: usize,
+    ) -> Self {
         let forecast: BTreeMap<_, _> = state
             .into_iter()
             .map(|(time, temp)| (time.into(), temp))
             .collect();
-        Self { forecast, complete }
+        Self {
+            forecast,
+            complete,
+            max_lead_time,
+        }
     }
 }
 
@@ -138,7 +147,7 @@ impl ForecastFetcher {
                     match update {
                         Ok(update) => {
                             let _ = self.state.insert(update.timestamp, update.temperature);
-                            let forecast = WeatherForecast::new(self.state.clone(), total == self.max_lead_time);
+                            let forecast = WeatherForecast::new(self.state.clone(), total == self.max_lead_time, self.max_lead_time,);
                             yield Ok(forecast)
                         },
                         Err(err) => yield Err(err)

@@ -56,6 +56,11 @@ impl Strategy<WeatherEvents> for ForecastNotifier {
                         }
                     } else {
                         // TODO: handle partial bayesian updates
+                        println!(
+                            "Partial forecast ({}/{})",
+                            data.message.forecast.len(),
+                            data.message.max_lead_time
+                        );
                     }
                 }
             })

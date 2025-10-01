@@ -154,10 +154,6 @@ where
                 Err(_) if retry_count < max_retries => {
                     retry_count += 1;
                     let delay = std::time::Duration::from_millis(100 * (1 << retry_count));
-                    println!(
-                        "Connection to {} failed (attempt {}), retrying in {:?}...",
-                        service, retry_count, delay
-                    );
                     tokio::time::sleep(delay).await;
                 }
                 Err(e) => {

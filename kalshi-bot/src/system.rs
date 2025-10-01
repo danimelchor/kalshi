@@ -118,7 +118,7 @@ pub async fn start_system(command: &SystemCommand) -> Result<()> {
                 "--date".into(),
                 command.date.to_string(),
             ],
-            delay_secs: Some(4),
+            delay_secs: None,
             color: Color::Cyan,
             name: strategy.to_string(),
         })
