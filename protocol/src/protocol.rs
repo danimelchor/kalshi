@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use chrono_tz::Tz;
 use futures::lock::Mutex;
 use futures::stream::{SelectAll, Stream, StreamExt, unfold};
 use serde::{Deserialize, Serialize};
@@ -196,7 +195,7 @@ where
 
                 // Decode the message
                 match bitcode::deserialize::<Event<T>>(&buf) {
-                    Ok((event)) => Some((Ok(event), stream)),
+                    Ok(event) => Some((Ok(event), stream)),
                     Err(e) => Some((
                         Err(Box::new(e) as Box<dyn std::error::Error + Send + Sync>),
                         stream,
