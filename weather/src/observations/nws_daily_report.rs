@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, anyhow};
-use chrono::{TimeDelta, Utc};
+use chrono::NaiveDateTime;
 use protocol::datetime::DateTimeZoned;
 use regex::Regex;
 use reqwest::Client;
@@ -22,6 +22,23 @@ impl NWSDailyReport {
     pub fn parse_report(report: &str, station: Station, for_today: bool) -> Result<Self> {
         let mut lines = report.lines();
 
+        // Find datetime section
+        for line in &mut lines {
+            if line.trim_start().starts_with("NATIONAL WEATHER SERVICE") {
+                break;
+            }
+        }
+        let dt_line = lines.next().context("Malformed daily report")?;
+        let (time, rest) = dt_line
+            .split_once(" ")
+            .context("Invalid datetime format in report")?;
+        let dt_str = format!("{:0>4} {}", time, rest);
+        let dt = NaiveDateTime::parse_from_str(&dt_str, "%l%M %p %Z %a %b %d %Y")
+            .context("Invalid datetime format in report")?
+            .and_local_timezone(station.timezone())
+            .single()
+            .context("Expected a single timezone to match")?;
+
         // Find TEMPERATURE section
         for line in &mut lines {
             if line.trim_start().starts_with("TEMPERATURE (F)") {
@@ -30,14 +47,7 @@ impl NWSDailyReport {
         }
 
         let for_when = lines.next().context("Malformed daily NWS report")?;
-        let dt = if for_when.trim().to_lowercase() == "today" {
-            Utc::now().with_timezone(&station.timezone())
-        } else if for_when.trim().to_lowercase() == "today" {
-            if for_today {
-                return Err(anyhow!("Report is not for today"));
-            }
-            Utc::now().with_timezone(&station.timezone()) - TimeDelta::days(1)
-        } else {
+        if for_when.trim().to_lowercase() != "today" && for_today {
             return Err(anyhow!("Unexpected report date: {}", for_when));
         };
 

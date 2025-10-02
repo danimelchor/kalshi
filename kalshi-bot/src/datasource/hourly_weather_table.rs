@@ -37,7 +37,7 @@ impl DataSource<NWSHourlyTableTemperatures> for HourlyWeatherTableSource {
                     .fetch()
                     .await;
                 yield result;
-                    sleep(Duration::from_secs(60)).await;
+                sleep(Duration::from_secs(60)).await;
             }
         }
     }
