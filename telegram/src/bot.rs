@@ -1,10 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use protocol::protocol;
 use std::env;
 use teloxide::{prelude::*, types::ParseMode, utils::command::BotCommands};
 use tokio::{net::UnixStream, try_join};
 
-use crate::message::TelegramMessage;
+use crate::client::TelegramMessage;
 
 #[derive(BotCommands, Clone)]
 #[command(
@@ -106,23 +106,6 @@ impl TelegramBot {
         let command_bot = self.start_command_bot();
         let logger = self.start_logger();
         let _ = try_join!(command_bot, logger);
-        Ok(())
-    }
-}
-
-pub struct TelegramClient {
-    stream: UnixStream,
-}
-
-impl TelegramClient {
-    pub async fn start() -> Result<Self> {
-        let stream = protocol::create_unix_stream(protocol::ServiceName::Telegram).await?;
-        Ok(Self { stream })
-    }
-
-    pub async fn send_message(&mut self, message: &TelegramMessage) -> Result<()> {
-        let buf = bitcode::serialize(message).context("Serializing telegram message")?;
-        protocol::write(&buf, &mut self.stream).await?;
         Ok(())
     }
 }

@@ -194,7 +194,7 @@ where
         })
     }
 
-    pub fn listen(self) -> impl Stream<Item = Result<Event<T>>> {
+    pub fn listen(self) -> impl Stream<Item = Result<Event<T>>> + Send {
         let mut subscription = self.subscription;
         stream! {
             loop {
@@ -237,12 +237,14 @@ impl<E> MultiServiceSubscriber<E> {
         Ok(())
     }
 
-    pub async fn listen_all<F>(mut self, mut handler: F)
+    pub async fn listen_all<F, Fut>(mut self, mut handler: F) -> Result<()>
     where
-        F: FnMut(E),
+        F: FnMut(E) -> Fut,
+        Fut: Future<Output = Result<()>>,
     {
         while let Some(event) = self.streams.next().await {
-            handler(event);
+            handler(event).await?;
         }
+        Ok(())
     }
 }

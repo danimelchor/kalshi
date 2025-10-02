@@ -38,12 +38,11 @@ impl DataSource<NWSHourlyTimeseriesTemperatures> for HourlyWeatherTimeseriesSour
     fn fetch_data(&mut self) -> impl Stream<Item = Result<NWSHourlyTimeseriesTemperatures>> + Send {
         stream! {
             loop {
-
-        let result = self.scraper
-            .scrape()
-            .await;
+                let result = self.scraper
+                    .scrape()
+                    .await;
                 yield result;
-                    sleep(Duration::from_secs(60)).await;
+                sleep(Duration::from_secs(60)).await;
             }
         }
     }

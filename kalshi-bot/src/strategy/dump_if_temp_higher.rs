@@ -42,15 +42,18 @@ impl Strategy<WeatherEvents> for DumpIfTempHigher {
             .await?;
 
         client
-            .listen_all(|event| match event {
-                WeatherEvents::HourlyWeatherObservation(data) => {
-                    // println!("Hourly weather observation: {:?}", data)
+            .listen_all(|event| async move {
+                match event {
+                    WeatherEvents::HourlyWeatherObservation(data) => {
+                        // println!("Hourly weather observation: {:?}", data)
+                    }
+                    WeatherEvents::DailyWeatherObservations(data) => {
+                        println!("Daily weather observation: {:?}", data)
+                    }
                 }
-                WeatherEvents::DailyWeatherObservations(data) => {
-                    println!("Daily weather observation: {:?}", data)
-                }
+                Ok(())
             })
-            .await;
+            .await?;
 
         Ok(())
     }
