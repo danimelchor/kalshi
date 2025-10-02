@@ -27,6 +27,25 @@ pub struct WeatherForecast {
     pub total_lead_times: usize,
 }
 
+impl WeatherForecast {
+    fn new(state: BTreeMap<DateTime<Tz>, Temperature>, max_lead_time: usize) -> Self {
+        let forecast: BTreeMap<_, _> = state
+            .into_iter()
+            .map(|(time, temp)| (time.into(), temp))
+            .collect();
+
+        let num_lead_times = forecast.len();
+        let total_lead_times = max_lead_time;
+        let complete = num_lead_times == total_lead_times;
+        Self {
+            num_lead_times,
+            total_lead_times,
+            forecast,
+            complete,
+        }
+    }
+}
+
 struct ForecastCycle {
     ts: DateTime<Tz>,
     max_lead_time: usize,
@@ -59,11 +78,11 @@ impl ForecastCycle {
     ) -> Result<SingleWeatherForecast> {
         let permit = sem.acquire().await.expect("Unwrapping semaphore");
         wait_for_report(&self.model, &self.ts, lead_time).await?;
-        let bytes = get_report(&self.model, &self.ts, lead_time).await?;
 
         // Parsing the report can be done while we download the next one
         drop(permit);
 
+        let bytes = get_report(&self.model, &self.ts, lead_time).await?;
         let station = self.station;
         let model = self.model;
         let ts = self.ts;
@@ -92,25 +111,6 @@ pub struct ForecastFetcher {
     model: Model,
     max_lead_time: usize,
     compute_options: ComputeOptions,
-}
-
-impl WeatherForecast {
-    fn new(state: BTreeMap<DateTime<Tz>, Temperature>, max_lead_time: usize) -> Self {
-        let forecast: BTreeMap<_, _> = state
-            .into_iter()
-            .map(|(time, temp)| (time.into(), temp))
-            .collect();
-
-        let num_lead_times = forecast.len();
-        let total_lead_times = max_lead_time;
-        let complete = num_lead_times == total_lead_times;
-        Self {
-            num_lead_times,
-            total_lead_times,
-            forecast,
-            complete,
-        }
-    }
 }
 
 impl ForecastFetcher {

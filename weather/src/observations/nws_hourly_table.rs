@@ -98,7 +98,6 @@ impl NWSHourlyTableFetcher {
     }
 
     pub async fn fetch(&mut self) -> Result<NWSHourlyTableTemperatures> {
-        eprintln!("Prefetch");
         let res = self
             .client
             .get(&self.url)
@@ -109,7 +108,6 @@ impl NWSHourlyTableFetcher {
             .send()
             .await?;
         res.error_for_status_ref()?;
-        eprintln!("Postfetch");
 
         let text = res.text().await?;
         let document = Html::parse_document(&text);
@@ -121,7 +119,6 @@ impl NWSHourlyTableFetcher {
             .with_timezone(&self.station.timezone())
             .date_naive();
 
-        eprintln!("Prerows");
         for row in document.select(&row_selector).rev() {
             let cells: Vec<String> = row
                 .select(&cell_selector)
@@ -132,7 +129,6 @@ impl NWSHourlyTableFetcher {
                 rows.push(temp);
             }
         }
-        eprintln!("Postrows");
         Ok(NWSHourlyTableTemperatures(rows))
     }
 }

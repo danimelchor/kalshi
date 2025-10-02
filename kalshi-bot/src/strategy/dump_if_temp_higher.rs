@@ -50,6 +50,11 @@ async fn maybe_update_max_temp(
 ) -> Result<()> {
     let mut guard = observed_max.lock().await;
     let send_telegram = async |temp: Temperature| {
+        println!(
+            "Max observation: {}F | Source: {}",
+            temp.as_fahrenheit(),
+            source
+        );
         telegram_client
             .lock()
             .await
