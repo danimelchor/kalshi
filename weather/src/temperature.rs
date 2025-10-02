@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Temperature {
     Celsius(f32),
     Fahrenheit(f32),

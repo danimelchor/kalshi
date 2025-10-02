@@ -1,8 +1,11 @@
 use crate::strategy::Strategy;
+use crate::strategy::utils::check_dates_match;
+use anyhow::Context;
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::DateTime;
 use chrono::NaiveDate;
+use chrono::NaiveTime;
 use chrono_tz::Tz;
 use protocol::protocol::Event;
 use protocol::protocol::MultiServiceSubscriber;
@@ -12,6 +15,7 @@ use std::sync::Arc;
 use telegram::client::TelegramClient;
 use tokio::sync::Mutex;
 use weather::forecast::fetcher::WeatherForecast;
+use weather::station::Station;
 use weather::temperature::Temperature;
 
 #[derive(Debug)]
@@ -26,16 +30,18 @@ impl From<Event<WeatherForecast>> for WeatherEvents {
 }
 
 pub struct ForecastNotifier {
+    station: Station,
     forecast: Arc<Mutex<BTreeMap<DateTime<Tz>, Temperature>>>,
     telegram_client: Arc<Mutex<TelegramClient>>,
 }
 
 impl ForecastNotifier {
-    pub async fn new() -> Self {
+    pub async fn new(station: Station) -> Self {
         let telegram_client = TelegramClient::start()
             .await
             .expect("Create telegram client");
         Self {
+            station,
             forecast: Arc::new(Mutex::new(BTreeMap::new())),
             telegram_client: Arc::new(Mutex::new(telegram_client)),
         }
@@ -44,7 +50,7 @@ impl ForecastNotifier {
 
 async fn handle_event(
     event: WeatherEvents,
-    date: &NaiveDate,
+    date: &DateTime<Tz>,
     forecast: &Arc<Mutex<BTreeMap<DateTime<Tz>, Temperature>>>,
     telegram_client: &Arc<Mutex<TelegramClient>>,
 ) -> Result<()> {
@@ -57,7 +63,7 @@ async fn handle_event(
                 .into_iter()
                 .filter(|(k, _)| {
                     let dt: DateTime<Tz> = (*k).into();
-                    dt.date_naive() == *date
+                    check_dates_match(date, &dt)
                 })
                 .map(|(k, v)| (k.into(), v))
                 .collect();
@@ -71,12 +77,9 @@ async fn handle_event(
                         .lock()
                         .await
                         .message()
-                        .with_title("Forecast update")
-                        .with_body(format!(
-                            "Max temperature {}F at {}",
-                            max_temp.as_fahrenheit(),
-                            dt
-                        ))
+                        .with_title("📈 Forecast update")
+                        .with_item(format!("Max temp: {}F", max_temp.as_fahrenheit()))
+                        .with_item(format!("At: {}", dt))
                         .send()
                         .await?;
                 }
@@ -95,6 +98,12 @@ async fn handle_event(
 #[async_trait]
 impl Strategy<WeatherEvents> for ForecastNotifier {
     async fn run(&mut self, date: &NaiveDate) -> Result<()> {
+        let date = date
+            .and_time(NaiveTime::default())
+            .and_local_timezone(self.station.timezone())
+            .single()
+            .context("Expected a sigle timestamp from the station's timezone")?;
+
         let mut client = MultiServiceSubscriber::<WeatherEvents>::default();
         client
             .add_subscription::<WeatherForecast>(ServiceName::WeatherForecast)
@@ -107,7 +116,7 @@ impl Strategy<WeatherEvents> for ForecastNotifier {
                 let forecast = forecast.clone();
                 let telegram_client = telegram_client.clone();
                 async move {
-                    handle_event(event, date, &forecast, &telegram_client).await?;
+                    handle_event(event, &date, &forecast, &telegram_client).await?;
                     Ok(())
                 }
             })

@@ -1,7 +1,8 @@
-pub mod dump_if_temp_higher;
-pub mod forecast_notifier;
+mod dump_if_temp_higher;
+mod forecast_notifier;
 pub mod name;
 pub mod strategy;
+mod utils;
 
 use crate::strategy::{
     dump_if_temp_higher::DumpIfTempHigher, forecast_notifier::ForecastNotifier, name::StrategyName,
@@ -10,6 +11,7 @@ use crate::strategy::{
 use anyhow::Result;
 use chrono::NaiveDate;
 use clap::Args;
+use weather::station::Station;
 
 #[derive(Debug, Clone, Args)]
 pub struct StrategyCommand {
@@ -22,11 +24,11 @@ pub struct StrategyCommand {
 pub async fn run_strategy(command: &StrategyCommand) -> Result<()> {
     match command.name {
         StrategyName::ForecastNotifier => {
-            let mut strategy = ForecastNotifier::new().await;
+            let mut strategy = ForecastNotifier::new(Station::KNYC).await;
             strategy.run(&command.date).await.unwrap()
         }
         StrategyName::DumpIfTempHigher => {
-            let mut strategy = DumpIfTempHigher::default();
+            let mut strategy = DumpIfTempHigher::new(Station::KNYC);
             strategy.run(&command.date).await.unwrap()
         }
     }

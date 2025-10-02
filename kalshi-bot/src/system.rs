@@ -1,6 +1,6 @@
 use crate::{datasource::name::DataSourceName, strategy::name::StrategyName};
 use anyhow::{Context, Result};
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use clap::Args;
 use colored::{Color, Colorize};
 use futures::future::try_join_all;
@@ -80,7 +80,7 @@ fn run_in_subprocess(service: CommandSpec) -> JoinHandle<Result<()>> {
 #[derive(Debug, Clone, Args)]
 pub struct SystemCommand {
     #[arg(short, long)]
-    date: NaiveDate,
+    date: Option<NaiveDate>,
 }
 
 pub async fn start_system(command: &SystemCommand) -> Result<()> {
@@ -118,6 +118,7 @@ pub async fn start_system(command: &SystemCommand) -> Result<()> {
         })
     }
 
+    let date = command.date.unwrap_or(Local::now().date_naive());
     for strategy in StrategyName::iter() {
         services.push(CommandSpec {
             cmd: exe.clone(),
@@ -125,7 +126,7 @@ pub async fn start_system(command: &SystemCommand) -> Result<()> {
                 "strategy".into(),
                 strategy.to_string(),
                 "--date".into(),
-                command.date.to_string(),
+                date.to_string(),
             ],
             delay_secs: None,
             color: Color::Magenta,

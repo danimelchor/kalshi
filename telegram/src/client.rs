@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use ::protocol::protocol::Event;
 use anyhow::Result;
 use protocol::protocol;
@@ -8,7 +10,6 @@ use tokio::net::UnixStream;
 pub struct TelegramMessage {
     title: Option<String>,
     body: Option<String>,
-    extra_data: Option<String>,
 }
 
 fn escape_markdown_v2(text: &str) -> String {
@@ -27,12 +28,7 @@ impl TelegramMessage {
     pub fn to_telegram_text(&self) -> String {
         let title = escape_markdown_v2(self.title.as_deref().unwrap_or(""));
         let body = escape_markdown_v2(self.body.as_deref().unwrap_or(""));
-        let mut text = format!("*{}*\n\n{}", title, body);
-        if let Some(extra) = &self.extra_data {
-            let extra = escape_markdown_v2(extra);
-            text.push_str(&format!("\n\n```\n{}\n```", extra));
-        }
-        text
+        format!("*{}*\n{}", title, body)
     }
 }
 
@@ -59,8 +55,23 @@ impl<'a> WIPMessage<'a> {
         self
     }
 
-    pub fn with_extra_data<T: Into<String>>(mut self, extra_data: T) -> Self {
-        self.message.extra_data = Some(extra_data.into());
+    pub fn with_code<T: Into<String>>(mut self, code: T) -> Self {
+        let body = match self.message.body {
+            Some(body) => format!("{}\n", body),
+            None => "".into(),
+        };
+        let body = format!("{}```\n{}\n```", body, code.into());
+        self.message.body = Some(body);
+        self
+    }
+
+    pub fn with_item<T: Into<String>>(mut self, item: T) -> Self {
+        let body = match self.message.body {
+            Some(body) => format!("{}\n", body),
+            None => "".into(),
+        };
+        let body = format!("{} - {}", body, item.into());
+        self.message.body = Some(body);
         self
     }
 
