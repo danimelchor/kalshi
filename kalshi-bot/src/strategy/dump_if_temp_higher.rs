@@ -4,24 +4,32 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use protocol::protocol::{Event, MultiServiceSubscriber, ServiceName};
 use weather::observations::{
-    nws_daily_report::NWSDailyReport, nws_hourly_timeseries::NWSHourlyTimeseriesTemperatures,
+    nws_daily_report::NWSDailyReport, nws_hourly_table::NWSHourlyTableTemperatures,
+    nws_hourly_timeseries::NWSHourlyTimeseriesTemperatures,
 };
 
 #[derive(Debug)]
 pub enum WeatherEvents {
-    HourlyWeatherObservation(Event<NWSHourlyTimeseriesTemperatures>),
-    DailyWeatherObservations(Event<NWSDailyReport>),
+    HourlyWeatherTimeseries(NWSHourlyTimeseriesTemperatures),
+    HourlyWeatherTable(NWSHourlyTableTemperatures),
+    DailyWeatherReport(NWSDailyReport),
 }
 
 impl From<Event<NWSHourlyTimeseriesTemperatures>> for WeatherEvents {
     fn from(event: Event<NWSHourlyTimeseriesTemperatures>) -> Self {
-        WeatherEvents::HourlyWeatherObservation(event)
+        WeatherEvents::HourlyWeatherTimeseries(event.message)
+    }
+}
+
+impl From<Event<NWSHourlyTableTemperatures>> for WeatherEvents {
+    fn from(event: Event<NWSHourlyTableTemperatures>) -> Self {
+        WeatherEvents::HourlyWeatherTable(event.message)
     }
 }
 
 impl From<Event<NWSDailyReport>> for WeatherEvents {
     fn from(event: Event<NWSDailyReport>) -> Self {
-        WeatherEvents::DailyWeatherObservations(event)
+        WeatherEvents::DailyWeatherReport(event.message)
     }
 }
 
@@ -38,17 +46,23 @@ impl Strategy<WeatherEvents> for DumpIfTempHigher {
             )
             .await?;
         client
+            .add_subscription::<NWSHourlyTableTemperatures>(ServiceName::HourlyWeatherTable)
+            .await?;
+        client
             .add_subscription::<NWSDailyReport>(ServiceName::DailyWeatherReport)
             .await?;
 
         client
             .listen_all(|event| async move {
                 match event {
-                    WeatherEvents::HourlyWeatherObservation(data) => {
-                        // println!("Hourly weather observation: {:?}", data)
+                    WeatherEvents::HourlyWeatherTimeseries(data) => {
+                        println!("Hourly weather timeseries: {:?}", data.0.last().unwrap())
                     }
-                    WeatherEvents::DailyWeatherObservations(data) => {
-                        println!("Daily weather observation: {:?}", data)
+                    WeatherEvents::HourlyWeatherTable(data) => {
+                        println!("Hourly weather table: {:?}", data.0.last().unwrap())
+                    }
+                    WeatherEvents::DailyWeatherReport(data) => {
+                        println!("Daily weather report: {:?}", data)
                     }
                 }
                 Ok(())

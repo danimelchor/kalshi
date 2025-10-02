@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use clap::Args;
 use colored::{Color, Colorize};
-use futures::future::{join_all, try_join_all};
+use futures::future::try_join_all;
 use std::process::Stdio;
 use std::time::Duration;
 use strum::IntoEnumIterator;

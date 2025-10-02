@@ -1,4 +1,5 @@
-use anyhow::{Context, Result};
+use ::protocol::protocol::Event;
+use anyhow::Result;
 use protocol::protocol;
 use serde::{Deserialize, Serialize};
 use tokio::net::UnixStream;
@@ -10,14 +11,25 @@ pub struct TelegramMessage {
     extra_data: Option<String>,
 }
 
+fn escape_markdown_v2(text: &str) -> String {
+    let chars_to_escape = r#"_*[]()~`>#+-=|{}.!"#;
+    let mut escaped = String::with_capacity(text.len());
+    for c in text.chars() {
+        if chars_to_escape.contains(c) {
+            escaped.push('\\');
+        }
+        escaped.push(c);
+    }
+    escaped
+}
+
 impl TelegramMessage {
     pub fn to_telegram_text(&self) -> String {
-        let mut text = format!(
-            "*{}*\n\n{}",
-            self.title.as_deref().unwrap_or(""),
-            self.body.as_deref().unwrap_or("")
-        );
+        let title = escape_markdown_v2(self.title.as_deref().unwrap_or(""));
+        let body = escape_markdown_v2(self.body.as_deref().unwrap_or(""));
+        let mut text = format!("*{}*\n\n{}", title, body);
         if let Some(extra) = &self.extra_data {
+            let extra = escape_markdown_v2(extra);
             text.push_str(&format!("\n\n```\n{}\n```", extra));
         }
         text
@@ -59,17 +71,19 @@ impl<'a> WIPMessage<'a> {
 
 pub struct TelegramClient {
     stream: UnixStream,
+    id: u32,
 }
 
 impl TelegramClient {
     pub async fn start() -> Result<Self> {
         let stream = protocol::create_unix_stream(protocol::ServiceName::Telegram).await?;
-        Ok(Self { stream })
+        Ok(Self { stream, id: 0 })
     }
 
     async fn send_message(&mut self, message: TelegramMessage) -> Result<()> {
-        let buf = bitcode::serialize(&message).context("Serializing telegram message")?;
-        protocol::write(&buf, &mut self.stream).await?;
+        let event = Event::new(self.id, message);
+        protocol::write_one(&event, &mut self.stream).await?;
+        self.id += 1;
         Ok(())
     }
 

@@ -96,12 +96,11 @@ pub async fn create_unix_stream(service: ServiceName) -> Result<UnixStream> {
     }
 }
 
-pub async fn write(buf: &[u8], stream: &mut UnixStream) -> Result<()> {
-    // We could encode the message into a buf here but it's more efficient to take
-    // an encoded message so that we encode once for many clients
+pub async fn write_one<T: Serialize>(message: &Event<T>, stream: &mut UnixStream) -> Result<()> {
+    let buf = bitcode::serialize(&message).context("Serializing telegram message")?;
     let len = buf.len() as u32;
     stream.write_all(&len.to_le_bytes()).await?;
-    stream.write_all(buf).await?;
+    stream.write_all(&buf).await?;
     Ok(())
 }
 
@@ -156,13 +155,10 @@ where
     }
 
     pub async fn publish(&mut self, event: &Event<T>) -> Result<()> {
-        let buf = bitcode::serialize(event).unwrap();
-
         let mut clients = self.clients.lock().await;
         let mut failed_clients = Vec::new();
-
         for (index, client) in clients.iter_mut().enumerate() {
-            if write(&buf, client).await.is_err() {
+            if write_one(event, client).await.is_err() {
                 failed_clients.push(index);
             }
         }
