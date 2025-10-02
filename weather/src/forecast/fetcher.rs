@@ -121,6 +121,13 @@ impl ForecastFetcher {
         compute_options: Option<ComputeOptions>,
     ) -> Self {
         let compute_options = compute_options.unwrap_or(ComputeOptions::Precomputed);
+        if max_lead_time > model.max_runs() {
+            panic!(
+                "The {} model supports at most {} runs",
+                model,
+                model.max_runs()
+            )
+        }
         Self {
             compute_options,
             state: BTreeMap::new(),
@@ -131,7 +138,7 @@ impl ForecastFetcher {
     }
 
     pub fn fetch(&mut self) -> impl Stream<Item = Result<WeatherForecast>> {
-        let mut ts = (Utc::now() - TimeDelta::hours(1))
+        let mut ts = (Utc::now() - TimeDelta::hours(2))
             .with_timezone(&self.station.timezone())
             .duration_trunc(TimeDelta::hours(1))
             .unwrap();
@@ -147,7 +154,7 @@ impl ForecastFetcher {
                     ts,
                     self.max_lead_time
                 );
-                let mut results = forecast_cycle.fetch() ;
+                let mut results = forecast_cycle.fetch();
                 while let Some(update) = results.next().await {
                     match update {
                         Ok(update) => {

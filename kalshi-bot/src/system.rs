@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use clap::Args;
 use colored::{Color, Colorize};
-use futures::future::join_all;
+use futures::future::{join_all, try_join_all};
 use std::process::Stdio;
 use std::time::Duration;
 use strum::IntoEnumIterator;
@@ -134,12 +134,11 @@ pub async fn start_system(command: &SystemCommand) -> Result<()> {
     }
     let handles: Vec<_> = services.into_iter().map(run_in_subprocess).collect();
 
-    let results = join_all(handles).await;
+    let results = try_join_all(handles).await?;
     for result in results {
         match result {
-            Ok(Ok(())) => { /* success */ }
-            Ok(Err(e)) => eprintln!("Service error: {:?}", e),
-            Err(e) => eprintln!("Task panicked: {:?}", e),
+            Ok(()) => { /* success */ }
+            Err(e) => eprintln!("Service error: {:?}", e),
         }
     }
 

@@ -72,6 +72,7 @@ pub async fn wait_for_report(model: &Model, ts: &DateTime<Tz>, lead_time: usize)
             }
             ReportState::DoesntExist => {
                 sleep(Duration::from_secs(60)).await;
+                println!("Forecast for {lead_time} does not exist yet");
                 retries = 0;
             }
         };

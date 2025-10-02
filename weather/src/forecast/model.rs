@@ -16,6 +16,12 @@ impl Model {
             (Model::HRRR, Station::KNYC) => ((1553, 698), (1799, 1059)),
         }
     }
+
+    pub fn max_runs(&self) -> usize {
+        match self {
+            Model::HRRR => 18,
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
