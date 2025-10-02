@@ -13,6 +13,7 @@ if cargo check; then
     if pgrep -x "$BINARY_NAME" > /dev/null; then
         echo "Stopping existing binary..."
         pkill -x "$BINARY_NAME"
+        mv "$LOG_FILE" "${LOG_FILE}.bak"
     fi
 
     # Run new binary

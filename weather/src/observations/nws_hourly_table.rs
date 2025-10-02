@@ -46,6 +46,8 @@ impl NWSHourlyTableTemperature {
             date
         };
         let datetime = date
+            .with_day(day)
+            .context("Expected day of month to be valid")?
             .and_time(time)
             .and_local_timezone(station.timezone())
             .single()
