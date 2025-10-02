@@ -130,7 +130,6 @@ async fn handle_event(
             }
         }
         WeatherEvents::DailyWeatherReport(data) => {
-            println!("Daily weather report: {:?}", data);
             let dt: DateTime<Tz> = data.datetime.into();
             if check_dates_match(date, &dt) {
                 maybe_update(data.max_temperature).await?;

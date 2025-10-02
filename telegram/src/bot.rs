@@ -18,6 +18,7 @@ pub enum Command {
     Status(String),
 }
 
+#[derive(Clone)]
 pub struct TelegramBot {
     bot: Bot,
     chat_id: ChatId,
@@ -98,7 +99,12 @@ impl TelegramBot {
         println!("Listening to messages");
         loop {
             let (stream, _) = bind.accept().await?;
-            self.handle_client(stream).await;
+            let self_clone = self.clone();
+            tokio::spawn({
+                async move {
+                    self_clone.handle_client(stream).await;
+                }
+            });
         }
     }
 

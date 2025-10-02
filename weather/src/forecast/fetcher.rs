@@ -138,7 +138,7 @@ impl ForecastFetcher {
     }
 
     pub fn fetch(&mut self) -> impl Stream<Item = Result<WeatherForecast>> {
-        let mut ts = (Utc::now() - TimeDelta::hours(2))
+        let mut ts = (Utc::now() - TimeDelta::hours(1))
             .with_timezone(&self.station.timezone())
             .duration_trunc(TimeDelta::hours(1))
             .unwrap();

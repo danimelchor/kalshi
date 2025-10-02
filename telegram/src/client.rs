@@ -1,4 +1,3 @@
-
 use ::protocol::protocol::Event;
 use anyhow::Result;
 use protocol::protocol;

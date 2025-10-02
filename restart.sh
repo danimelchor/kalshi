@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-BINARY_NAME="kalshi-bot"   # Replace with your binary name
-BINARY_PATH="./target/debug/$BINARY_NAME"
+BINARY_NAME="kalshi-bot"
+BINARY_PATH="./target/release/$BINARY_NAME"
 LOG_FILE="/tmp/$BINARY_NAME.log"
 DATE=$(date +"%Y-%m-%d")
 
