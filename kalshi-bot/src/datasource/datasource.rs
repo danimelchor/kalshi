@@ -37,7 +37,7 @@ impl<T> DataSourceEvent<T> {
 #[async_trait]
 pub trait DataSource<T>: Display
 where
-    T: Serialize + Send + Sync,
+    T: Serialize + Send + Sync + 'static,
 {
     fn service_name() -> ServiceName;
 
@@ -56,7 +56,7 @@ where
             match event {
                 Ok(data) => {
                     let event = Event::new(event_id, data);
-                    if let Err(e) = publisher.publish(&event).await {
+                    if let Err(e) = publisher.publish(event).await {
                         eprintln!("Failed to publish event for {}: {:?}", id, e);
                     }
                     event_id = event_id.wrapping_add(1);

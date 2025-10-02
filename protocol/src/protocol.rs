@@ -11,6 +11,7 @@ use std::{marker::PhantomData, path::Path};
 use strum_macros;
 use tokio::fs;
 use tokio::net::UnixListener;
+use tokio::sync::RwLock;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
@@ -50,12 +51,6 @@ impl<T> Event<T> {
             ts: Utc::now().into(),
         }
     }
-}
-
-pub struct ServicePublisher<T> {
-    clients: Arc<Mutex<Vec<UnixStream>>>,
-    service_name: ServiceName,
-    _marker: PhantomData<T>,
 }
 
 pub async fn create_unix_bind(service_name: ServiceName) -> Result<UnixListener> {
@@ -125,23 +120,40 @@ pub async fn read<T: DeserializeOwned>(stream: &mut UnixStream) -> Result<Event<
     bitcode::deserialize::<Event<T>>(&buf).context("Deserializing message into type")
 }
 
+pub struct ServicePublisher<T> {
+    clients: Arc<Mutex<Vec<UnixStream>>>,
+    service_name: ServiceName,
+    buffer: Arc<RwLock<Vec<Event<T>>>>,
+}
+
 impl<T> ServicePublisher<T>
 where
-    T: Serialize,
+    T: Serialize + Send + Sync + 'static,
 {
     pub async fn new(service_name: ServiceName) -> Result<Self> {
         let listener = create_unix_bind(service_name).await?;
         let clients = Arc::new(Mutex::new(Vec::new()));
+        let buffer = Arc::new(RwLock::new(Vec::new()));
 
         let clients_clone = clients.clone();
+        let buffer_clone = buffer.clone();
         tokio::spawn(async move {
             loop {
                 match listener.accept().await {
-                    Ok((stream, _addr)) => {
-                        clients_clone.lock().await.push(stream);
-                    }
                     Err(e) => {
                         eprint!("Failed to accept subscriber connection: {}", e)
+                    }
+                    Ok((mut client, _addr)) => {
+                        let mut ok = true;
+                        for event in buffer_clone.read().await.iter() {
+                            if write_one(event, &mut client).await.is_err() {
+                                ok = false;
+                                break;
+                            }
+                        }
+                        if ok {
+                            clients_clone.lock().await.push(client);
+                        }
                     }
                 }
             }
@@ -150,18 +162,22 @@ where
         Ok(Self {
             clients,
             service_name,
-            _marker: PhantomData,
+            buffer,
         })
     }
 
-    pub async fn publish(&mut self, event: &Event<T>) -> Result<()> {
+    pub async fn publish(&mut self, event: Event<T>) -> Result<()> {
         let mut clients = self.clients.lock().await;
+
         let mut failed_clients = Vec::new();
         for (index, client) in clients.iter_mut().enumerate() {
-            if write_one(event, client).await.is_err() {
+            if write_one(&event, client).await.is_err() {
                 failed_clients.push(index);
             }
         }
+
+        // Store the sent event
+        self.buffer.write().await.push(event);
 
         // Remove failed clients (in reverse order to maintain indices)
         for &index in failed_clients.iter().rev() {
