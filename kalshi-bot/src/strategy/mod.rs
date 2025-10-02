@@ -28,7 +28,7 @@ pub async fn run_strategy(command: &StrategyCommand) -> Result<()> {
             strategy.run(&command.date).await.unwrap()
         }
         StrategyName::DumpIfTempHigher => {
-            let mut strategy = DumpIfTempHigher::new(Station::KNYC);
+            let mut strategy = DumpIfTempHigher::new(Station::KNYC).await;
             strategy.run(&command.date).await.unwrap()
         }
     }

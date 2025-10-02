@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, NaiveTime};
 use chrono_tz::Tz;
 use protocol::protocol::{Event, MultiServiceSubscriber, ServiceName};
+use telegram::client::TelegramClient;
 use tokio::sync::Mutex;
 use weather::{
     observations::{
@@ -41,23 +42,48 @@ impl From<Event<NWSDailyReport>> for WeatherEvents {
     }
 }
 
-async fn maybe_update_max_temp(seen: Temperature, observed_max: &Arc<Mutex<Option<Temperature>>>) {
+async fn maybe_update_max_temp(
+    seen: Temperature,
+    observed_max: &Arc<Mutex<Option<Temperature>>>,
+    telegram_client: &Arc<Mutex<TelegramClient>>,
+) -> Result<()> {
     let mut guard = observed_max.lock().await;
+    let send_telegram = async |temp: Temperature| {
+        telegram_client
+            .lock()
+            .await
+            .message()
+            .with_title("☀️ Max observation")
+            .with_item(format!("Max observation: {}F", temp.as_fahrenheit()))
+            .send()
+            .await
+    };
+
     match guard.as_ref() {
-        None => *guard = Some(seen),
+        None => {
+            *guard = Some(seen);
+            send_telegram(seen).await?;
+        }
         Some(max_t) => {
             if seen > *max_t {
-                *guard = Some(seen)
+                *guard = Some(seen);
+                send_telegram(seen).await?;
             }
         }
     }
+
+    Ok(())
 }
 
 async fn handle_event(
     event: WeatherEvents,
     date: &DateTime<Tz>,
-    observed_max: Arc<Mutex<Option<Temperature>>>,
+    observed_max: &Arc<Mutex<Option<Temperature>>>,
+    telegram_client: &Arc<Mutex<TelegramClient>>,
 ) -> Result<()> {
+    let maybe_update =
+        async |seen| maybe_update_max_temp(seen, observed_max, telegram_client).await;
+
     match event {
         WeatherEvents::HourlyWeatherTimeseries(data) => {
             let data: Vec<_> = data
@@ -70,7 +96,7 @@ async fn handle_event(
                 .collect();
 
             if let Some(max_temp) = data.iter().max_by_key(|t| &t.temperature) {
-                maybe_update_max_temp(max_temp.temperature, &observed_max).await;
+                maybe_update(max_temp.temperature).await?;
             }
 
             if let Some(max_six_h_temp) = data
@@ -78,7 +104,7 @@ async fn handle_event(
                 .filter_map(|t| t.six_hr_max_temperature.as_ref())
                 .max()
             {
-                maybe_update_max_temp(*max_six_h_temp, &observed_max).await;
+                maybe_update(*max_six_h_temp).await?;
             }
         }
         WeatherEvents::HourlyWeatherTable(data) => {
@@ -92,7 +118,7 @@ async fn handle_event(
                 .collect();
 
             if let Some(max_temp) = data.iter().max_by_key(|t| &t.temperature) {
-                maybe_update_max_temp(max_temp.temperature, &observed_max).await;
+                maybe_update(max_temp.temperature).await?;
             }
 
             if let Some(max_six_h_temp) = data
@@ -100,14 +126,14 @@ async fn handle_event(
                 .filter_map(|t| t.six_hr_max_temperature.as_ref())
                 .max()
             {
-                maybe_update_max_temp(*max_six_h_temp, &observed_max).await;
+                maybe_update(*max_six_h_temp).await?;
             }
         }
         WeatherEvents::DailyWeatherReport(data) => {
             println!("Daily weather report: {:?}", data);
             let dt: DateTime<Tz> = data.datetime.into();
             if check_dates_match(date, &dt) {
-                maybe_update_max_temp(data.max_temperature, &observed_max).await;
+                maybe_update(data.max_temperature).await?;
             }
         }
     }
@@ -117,13 +143,18 @@ async fn handle_event(
 pub struct DumpIfTempHigher {
     station: Station,
     observed_max: Arc<Mutex<Option<Temperature>>>,
+    telegram_client: Arc<Mutex<TelegramClient>>,
 }
 
 impl DumpIfTempHigher {
-    pub fn new(station: Station) -> Self {
+    pub async fn new(station: Station) -> Self {
+        let telegram_client = TelegramClient::start()
+            .await
+            .expect("Create telegram client");
         Self {
             station,
             observed_max: Arc::new(Mutex::new(None)),
+            telegram_client: Arc::new(Mutex::new(telegram_client)),
         }
     }
 }
@@ -151,10 +182,12 @@ impl Strategy<WeatherEvents> for DumpIfTempHigher {
             .await?;
 
         let observed_max = self.observed_max.clone();
+        let telegram_client = self.telegram_client.clone();
         client
             .listen_all(|event| {
                 let observed_max = observed_max.clone();
-                async move { handle_event(event, &date, observed_max).await }
+                let telegram_client = telegram_client.clone();
+                async move { handle_event(event, &date, &observed_max, &telegram_client).await }
             })
             .await?;
 

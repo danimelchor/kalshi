@@ -1,4 +1,3 @@
-use std::fmt::format;
 
 use ::protocol::protocol::Event;
 use anyhow::Result;
