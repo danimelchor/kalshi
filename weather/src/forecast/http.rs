@@ -2,7 +2,7 @@ use anyhow::{Context, Result, anyhow};
 use bytes::Bytes;
 use chrono::{DateTime, Datelike, Timelike};
 use chrono_tz::{Tz, UTC};
-use reqwest::{Client, StatusCode};
+use reqwest::{Client, StatusCode, header::RANGE};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -44,10 +44,51 @@ async fn check_if_report_exists(
     Ok(state)
 }
 
-pub async fn get_report(model: &Model, ts: &DateTime<Tz>, lead_time: usize) -> Result<Bytes> {
-    let url = get_url(model, ts, lead_time);
+pub fn parse_byte_offset_from_line(line: &str) -> Result<usize> {
+    let byte_offset: &str = line
+        .split(":")
+        .nth(1)
+        .with_context(|| format!("Malformed idx line: {}", line))?;
+
+    let byte_offset: usize = byte_offset
+        .parse()
+        .context("Parsing byte offset as a usize")?;
+
+    Ok(byte_offset)
+}
+
+pub async fn get_index(url: &str) -> Result<(usize, usize)> {
+    let url = format!("{}.idx", url);
     let client = Client::new();
     let response = client.get(url).send().await?;
+    if !response.status().is_success() {
+        anyhow::bail!("Failed to fetch: {}", response.status())
+    }
+    let text = response
+        .text()
+        .await
+        .context("Reading text from response")?;
+    let context: Vec<&str> = text
+        .lines()
+        .skip_while(|line| !line.contains("TMP:2 m"))
+        .take(2)
+        .collect();
+
+    let byte_start = parse_byte_offset_from_line(context[0])?;
+    let byte_end = parse_byte_offset_from_line(context[1])?;
+    Ok((byte_start, byte_end))
+}
+
+pub async fn get_report(model: &Model, ts: &DateTime<Tz>, lead_time: usize) -> Result<Bytes> {
+    let url = get_url(model, ts, lead_time);
+    let (byte_start, byte_end) = get_index(&url).await?;
+
+    let client = Client::new();
+    let response = client
+        .get(url)
+        .header(RANGE, format!("bytes={byte_start}-{byte_end})"))
+        .send()
+        .await?;
     if !response.status().is_success() {
         anyhow::bail!("Failed to fetch: {}", response.status())
     }
