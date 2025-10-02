@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{fmt::Display, time::Duration};
 
 use crate::datasource::datasource::DataSource;
 use anyhow::{Context, Result};
@@ -17,6 +17,12 @@ pub struct HourlyWeatherTimeseriesSource {
     scraper: NWSHourlyTimeseriesScraper,
 }
 
+impl Display for HourlyWeatherTimeseriesSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HourlyWeatherTimeseriesSource")
+    }
+}
+
 impl HourlyWeatherTimeseriesSource {
     pub async fn new(station: Station) -> Result<Self> {
         let scraper = NWSHourlyTimeseriesScraper::new(station, None)
@@ -27,10 +33,6 @@ impl HourlyWeatherTimeseriesSource {
 }
 
 impl DataSource<NWSHourlyTimeseriesTemperatures> for HourlyWeatherTimeseriesSource {
-    fn name() -> String {
-        "Weather Forecast".into()
-    }
-
     fn service_name() -> ServiceName {
         ServiceName::HourlyWeatherTimeseries
     }

@@ -3,7 +3,7 @@ use anyhow::Result;
 use async_stream::stream;
 use futures::Stream;
 use protocol::protocol::ServiceName;
-use std::time::Duration;
+use std::{fmt::Display, time::Duration};
 use tokio::time::sleep;
 use weather::{
     observations::nws_hourly_table::{NWSHourlyTableFetcher, NWSHourlyTableTemperatures},
@@ -21,11 +21,13 @@ impl HourlyWeatherTableSource {
     }
 }
 
-impl DataSource<NWSHourlyTableTemperatures> for HourlyWeatherTableSource {
-    fn name() -> String {
-        "Weather Forecast".into()
+impl Display for HourlyWeatherTableSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HourlyWeatherTableSource")
     }
+}
 
+impl DataSource<NWSHourlyTableTemperatures> for HourlyWeatherTableSource {
     fn service_name() -> ServiceName {
         ServiceName::HourlyWeatherTable
     }

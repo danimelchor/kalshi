@@ -3,7 +3,7 @@ use anyhow::Result;
 use async_stream::stream;
 use futures::Stream;
 use protocol::protocol::ServiceName;
-use std::time::Duration;
+use std::{fmt::Display, time::Duration};
 use tokio::time::sleep;
 use weather::{
     observations::nws_daily_report::{NWSDailyReport, NWSDailyReportFetcher},
@@ -14,6 +14,12 @@ pub struct DailyWeatherReportSource {
     fetcher: NWSDailyReportFetcher,
 }
 
+impl Display for DailyWeatherReportSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DailyWeatherReportSource")
+    }
+}
+
 impl DailyWeatherReportSource {
     pub fn new(station: Station) -> Self {
         let fetcher = NWSDailyReportFetcher::new(station, None);
@@ -22,10 +28,6 @@ impl DailyWeatherReportSource {
 }
 
 impl DataSource<NWSDailyReport> for DailyWeatherReportSource {
-    fn name() -> String {
-        "Weather Forecast".into()
-    }
-
     fn service_name() -> ServiceName {
         ServiceName::DailyWeatherReport
     }

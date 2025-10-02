@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use async_trait::async_trait;
 use futures::Stream;
 use weather::{
@@ -17,6 +19,12 @@ pub struct WeatherForecastDataSource {
     fetcher: ForecastFetcher,
 }
 
+impl Display for WeatherForecastDataSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "WeatherForecastDataSource")
+    }
+}
+
 impl WeatherForecastDataSource {
     pub fn new(station: Station, model: Model) -> Self {
         let fetcher = ForecastFetcher::new(station, model, 18, None);
@@ -26,10 +34,6 @@ impl WeatherForecastDataSource {
 
 #[async_trait]
 impl DataSource<WeatherForecast> for WeatherForecastDataSource {
-    fn name() -> String {
-        "Weather Forecast".into()
-    }
-
     fn service_name() -> ServiceName {
         ServiceName::WeatherForecast
     }
