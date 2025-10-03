@@ -10,7 +10,7 @@ use anyhow::Result;
 use async_stream::stream;
 use chrono::{DateTime, DurationRound, TimeDelta, Utc};
 use chrono_tz::Tz;
-use futures::{Stream, StreamExt, stream::FuturesUnordered};
+use futures::{FutureExt, Stream, StreamExt, stream::FuturesUnordered};
 use protocol::datetime::DateTimeZoned;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, sync::Arc};
@@ -46,6 +46,19 @@ impl ForecastCycle {
         }
     }
 
+    async fn parse_report(&self, lead_time: usize) -> Result<SingleWeatherForecast> {
+        let opts = ForecastHttpOptions::new(self.model, self.ts, lead_time, self.historical);
+        let bytes = get_report(&opts).await?;
+        let station = self.station;
+        let model = self.model;
+        let ts = self.ts;
+        let compute_options = self.compute_options;
+        tokio::task::spawn_blocking(move || {
+            parse_report_with_opts(bytes, station, model, ts, lead_time, compute_options)
+        })
+        .await?
+    }
+
     async fn wait_and_parse_report(
         &self,
         lead_time: usize,
@@ -58,15 +71,7 @@ impl ForecastCycle {
         // Parsing the report can be done while we download the next one
         drop(permit);
 
-        let bytes = get_report(&opts).await?;
-        let station = self.station;
-        let model = self.model;
-        let ts = self.ts;
-        let compute_options = self.compute_options;
-        tokio::task::spawn_blocking(move || {
-            parse_report_with_opts(bytes, station, model, ts, lead_time, compute_options)
-        })
-        .await?
+        self.parse_report(lead_time).await
     }
 
     pub fn fetch(&self) -> impl Stream<Item = Result<SingleWeatherForecast>> {
@@ -75,7 +80,13 @@ impl ForecastCycle {
         let tasks = FuturesUnordered::new();
         for lead_time in 0..=self.max_lead_time {
             let sem = semaphore.clone();
-            tasks.push(self.wait_and_parse_report(lead_time, sem));
+
+            // With historical runs we don't wait if it doesn't exist
+            if self.historical {
+                tasks.push(self.parse_report(lead_time).boxed());
+            } else {
+                tasks.push(self.wait_and_parse_report(lead_time, sem).boxed());
+            }
         }
         tasks
     }
