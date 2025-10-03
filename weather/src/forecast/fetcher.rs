@@ -93,7 +93,7 @@ pub struct WeatherForecast {
 impl WeatherForecast {
     fn new(forecast: BTreeMap<DateTimeZoned, SingleWeatherForecast>, max_lead_time: usize) -> Self {
         let num_lead_times = forecast.len();
-        let total_lead_times = max_lead_time;
+        let total_lead_times = max_lead_time + 1;
         let complete = num_lead_times == total_lead_times;
         Self {
             num_lead_times,

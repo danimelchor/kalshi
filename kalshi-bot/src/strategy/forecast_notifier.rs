@@ -78,7 +78,7 @@ async fn handle_event(
                     let lead_time = max_temp._lead_time;
                     let stdev = model.stdev(lead_time);
                     println!(
-                        "Max temperature {:.1}F±{:.1} (68% odds; {}h lead time) at {}",
+                        "Max temperature {:.2}F±{:.2} (68% odds; {}h lead time) at {}",
                         max_temp.temperature.as_fahrenheit(),
                         stdev,
                         lead_time,
@@ -90,7 +90,7 @@ async fn handle_event(
                         .message()
                         .with_title("📈 Forecast update")
                         .with_item(format!(
-                            "Max temp: {:.1}F±{:.1} (68% odds)",
+                            "Max temp: {:.2}F±{:.2} (68% odds)",
                             max_temp.temperature.as_fahrenheit(),
                             stdev,
                         ))
