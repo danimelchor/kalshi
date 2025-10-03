@@ -17,7 +17,7 @@ if cargo check; then
     fi
 
     # Run new binary
-    echo "Starting new binary..."
+    echo "Starting new binary for ${DATE}..."
     unbuffer "$BINARY_PATH" system --date "$DATE" >> "$LOG_FILE" 2>&1 &
 
     echo "Tailing logs..."
