@@ -3,7 +3,8 @@ use bytes::Bytes;
 use chrono::{DateTime, TimeDelta};
 use chrono_tz::Tz;
 use grib::{Grib2, SeekableGrib2Reader, SubMessage};
-use serde::Serialize;
+use protocol::datetime::DateTimeZoned;
+use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 
 use crate::{
@@ -16,10 +17,10 @@ const TEMPERATURE_NUMBER: u8 = 0;
 const SURFACE_TYPE: u8 = 103;
 const METERS_ABOVE_GROUND: i32 = 2;
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct SingleWeatherForecast {
     pub temperature: Temperature,
-    pub timestamp: DateTime<Tz>,
+    pub timestamp: DateTimeZoned,
     pub _lead_time: usize,
 }
 
@@ -131,9 +132,10 @@ pub fn parse_report_with_opts(
     let grib2 = grib::from_reader(cursor)?;
     let submessage = find_message(&grib2)?;
     let temperature = temp_closest_to_station(station, model, submessage, compute_opts)?;
+    let timestamp = ts + TimeDelta::hours(lead_time as i64);
     Ok(SingleWeatherForecast {
         temperature,
-        timestamp: ts + TimeDelta::hours(lead_time as i64),
+        timestamp: timestamp.into(),
         _lead_time: lead_time,
     })
 }

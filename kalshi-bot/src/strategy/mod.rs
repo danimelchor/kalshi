@@ -11,7 +11,7 @@ use crate::strategy::{
 use anyhow::Result;
 use chrono::NaiveDate;
 use clap::Args;
-use weather::station::Station;
+use weather::{forecast::model::Model, station::Station};
 
 #[derive(Debug, Clone, Args)]
 pub struct StrategyCommand {
@@ -24,7 +24,7 @@ pub struct StrategyCommand {
 pub async fn run_strategy(command: &StrategyCommand) -> Result<()> {
     match command.name {
         StrategyName::ForecastNotifier => {
-            let mut strategy = ForecastNotifier::new(Station::KNYC).await;
+            let mut strategy = ForecastNotifier::new(Station::KNYC, Model::HRRR).await;
             strategy.run(&command.date).await.unwrap()
         }
         StrategyName::DumpIfTempHigher => {

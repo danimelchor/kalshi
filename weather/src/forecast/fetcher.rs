@@ -1,3 +1,11 @@
+use crate::{
+    forecast::{
+        http::{ForecastHttpOptions, get_report, wait_for_report},
+        model::{ComputeOptions, Model},
+        parser::parse_report_with_opts,
+    },
+    station::Station,
+};
 use anyhow::Result;
 use async_stream::stream;
 use chrono::{DateTime, DurationRound, TimeDelta, Utc};
@@ -8,43 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::Semaphore;
 
-use crate::{
-    forecast::{
-        http::{ForecastHttpOptions, get_report, wait_for_report},
-        model::{ComputeOptions, Model},
-        parser::{SingleWeatherForecast, parse_report_with_opts},
-    },
-    station::Station,
-    temperature::Temperature,
-};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct WeatherForecast {
-    #[serde(with = "serde_with::rust::maps_duplicate_key_is_error")]
-    pub forecast: BTreeMap<DateTimeZoned, Temperature>,
-    pub complete: bool,
-    pub num_lead_times: usize,
-    pub total_lead_times: usize,
-}
-
-impl WeatherForecast {
-    fn new(state: BTreeMap<DateTime<Tz>, Temperature>, max_lead_time: usize) -> Self {
-        let forecast: BTreeMap<_, _> = state
-            .into_iter()
-            .map(|(time, temp)| (time.into(), temp))
-            .collect();
-
-        let num_lead_times = forecast.len();
-        let total_lead_times = max_lead_time;
-        let complete = num_lead_times == total_lead_times;
-        Self {
-            num_lead_times,
-            total_lead_times,
-            forecast,
-            complete,
-        }
-    }
-}
+pub use crate::forecast::parser::SingleWeatherForecast;
 
 pub struct ForecastCycle {
     ts: DateTime<Tz>,
@@ -101,7 +73,7 @@ impl ForecastCycle {
         let semaphore = Arc::new(Semaphore::new(12));
 
         let tasks = FuturesUnordered::new();
-        for lead_time in 0..self.max_lead_time {
+        for lead_time in 0..=self.max_lead_time {
             let sem = semaphore.clone();
             tasks.push(self.wait_and_parse_report(lead_time, sem));
         }
@@ -109,8 +81,31 @@ impl ForecastCycle {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WeatherForecast {
+    #[serde(with = "serde_with::rust::maps_duplicate_key_is_error")]
+    pub forecast: BTreeMap<DateTimeZoned, SingleWeatherForecast>,
+    pub complete: bool,
+    pub num_lead_times: usize,
+    pub total_lead_times: usize,
+}
+
+impl WeatherForecast {
+    fn new(forecast: BTreeMap<DateTimeZoned, SingleWeatherForecast>, max_lead_time: usize) -> Self {
+        let num_lead_times = forecast.len();
+        let total_lead_times = max_lead_time;
+        let complete = num_lead_times == total_lead_times;
+        Self {
+            num_lead_times,
+            total_lead_times,
+            forecast,
+            complete,
+        }
+    }
+}
+
 pub struct ForecastFetcher {
-    state: BTreeMap<DateTime<Tz>, Temperature>,
+    state: BTreeMap<DateTimeZoned, SingleWeatherForecast>,
     station: Station,
     model: Model,
     max_lead_time: usize,
@@ -163,7 +158,7 @@ impl ForecastFetcher {
                 while let Some(update) = results.next().await {
                     match update {
                         Ok(update) => {
-                            let _ = self.state.insert(update.timestamp, update.temperature);
+                            let _ = self.state.insert(update.timestamp, update);
                             let forecast = WeatherForecast::new(
                                 self.state.clone(),
                                 self.max_lead_time,

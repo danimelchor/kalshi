@@ -14,9 +14,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use telegram::client::TelegramClient;
 use tokio::sync::Mutex;
-use weather::forecast::fetcher::WeatherForecast;
+use weather::forecast::fetcher::{SingleWeatherForecast, WeatherForecast};
+use weather::forecast::model::Model;
 use weather::station::Station;
-use weather::temperature::Temperature;
 
 #[derive(Debug)]
 pub enum WeatherEvents {
@@ -31,17 +31,19 @@ impl From<Event<WeatherForecast>> for WeatherEvents {
 
 pub struct ForecastNotifier {
     station: Station,
-    forecast: Arc<Mutex<BTreeMap<DateTime<Tz>, Temperature>>>,
+    model: Model,
+    forecast: Arc<Mutex<BTreeMap<DateTime<Tz>, SingleWeatherForecast>>>,
     telegram_client: Arc<Mutex<TelegramClient>>,
 }
 
 impl ForecastNotifier {
-    pub async fn new(station: Station) -> Self {
+    pub async fn new(station: Station, model: Model) -> Self {
         let telegram_client = TelegramClient::start()
             .await
             .expect("Create telegram client");
         Self {
             station,
+            model,
             forecast: Arc::new(Mutex::new(BTreeMap::new())),
             telegram_client: Arc::new(Mutex::new(telegram_client)),
         }
@@ -49,15 +51,16 @@ impl ForecastNotifier {
 }
 
 async fn handle_event(
+    model: Model,
     event: WeatherEvents,
     date: &DateTime<Tz>,
-    forecast: &Arc<Mutex<BTreeMap<DateTime<Tz>, Temperature>>>,
+    forecast: &Arc<Mutex<BTreeMap<DateTime<Tz>, SingleWeatherForecast>>>,
     telegram_client: &Arc<Mutex<TelegramClient>>,
 ) -> Result<()> {
     match event {
         WeatherEvents::WeatherForecast(data) => {
             let complete = data.message.complete;
-            let new_forecast: BTreeMap<DateTime<Tz>, Temperature> = data
+            let new_forecast: BTreeMap<DateTime<Tz>, SingleWeatherForecast> = data
                 .message
                 .forecast
                 .into_iter()
@@ -71,14 +74,25 @@ async fn handle_event(
             if complete {
                 let mut forecast = forecast.lock().await;
                 forecast.extend(new_forecast);
-                if let Some((dt, max_temp)) = forecast.iter().max_by_key(|(_, v)| *v) {
-                    println!("Max temperature {}F at {}", max_temp.as_fahrenheit(), dt);
+                if let Some((dt, max_temp)) = forecast.iter().max_by_key(|(_, v)| v.temperature) {
+                    let lead_time = max_temp._lead_time;
+                    let stdev = model.stdev(lead_time);
+                    println!(
+                        "Max temperature {}F±{} (68% odds) at {}",
+                        max_temp.temperature.as_fahrenheit(),
+                        stdev,
+                        dt
+                    );
                     telegram_client
                         .lock()
                         .await
                         .message()
                         .with_title("📈 Forecast update")
-                        .with_item(format!("Max temp: {}F", max_temp.as_fahrenheit()))
+                        .with_item(format!(
+                            "Max temp: {}F±{} (68% odds)",
+                            max_temp.temperature.as_fahrenheit(),
+                            stdev,
+                        ))
                         .with_item(format!("At: {}", dt))
                         .send()
                         .await?;
@@ -109,6 +123,7 @@ impl Strategy<WeatherEvents> for ForecastNotifier {
             .add_subscription::<WeatherForecast>(ServiceName::WeatherForecast)
             .await?;
 
+        let model = self.model;
         let forecast = self.forecast.clone();
         let telegram_client = self.telegram_client.clone();
         let _event_listener = client
@@ -116,7 +131,7 @@ impl Strategy<WeatherEvents> for ForecastNotifier {
                 let forecast = forecast.clone();
                 let telegram_client = telegram_client.clone();
                 async move {
-                    handle_event(event, &date, &forecast, &telegram_client).await?;
+                    handle_event(model, event, &date, &forecast, &telegram_client).await?;
                     Ok(())
                 }
             })
