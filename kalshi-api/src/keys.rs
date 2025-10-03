@@ -10,6 +10,7 @@ use std::{env, path::PathBuf};
 
 use tokio::fs;
 
+#[derive(Clone)]
 pub struct ApiKey(String);
 
 impl ApiKey {
@@ -25,6 +26,7 @@ impl Display for ApiKey {
     }
 }
 
+#[derive(Clone)]
 pub struct PrivateKey(RsaPrivateKey);
 
 impl PrivateKey {

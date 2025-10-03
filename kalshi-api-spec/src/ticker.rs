@@ -1,6 +1,6 @@
 use anyhow;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketTicker(String);
@@ -32,6 +32,13 @@ macro_rules! impl_from_string {
                 fn from_str(s: &str) -> Result<Self, Self::Err> {
                     let s: String = s.into();
                     Ok($t(s.to_uppercase()))
+                }
+            }
+
+
+            impl Display for $t {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, "{}", self.0)
                 }
             }
         )+

@@ -1,8 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
 use kalshi_api::{
-    client::{BaseUrl, KalshiApiClient, SafeSend},
+    client::BaseUrl,
     keys::{ApiKey, PrivateKey},
+    markets::MarketsApiClient,
 };
 use kalshi_api_spec::{event::EventResponse, ticker::EventTicker};
 use std::path::PathBuf;
@@ -22,16 +23,13 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     dotenvy::dotenv()?;
 
-    let ticker: String = cli.event_ticker.into();
     let api_key = ApiKey::from_env()?;
     let private_key = PrivateKey::from_file(cli.private_key).await?;
-    let client = KalshiApiClient::new(api_key, private_key, BaseUrl::Prod);
-
-    let response: EventResponse = client
-        .get(&format!("/trade-api/v2/events/{ticker}"))?
-        .safe_send()
-        .await?;
-    println!("Response: {:?}", response);
+    let client = MarketsApiClient::new(api_key, private_key, BaseUrl::Prod);
+    let response: EventResponse = client.get_event(&cli.event_ticker).await?;
+    let as_json = serde_json::to_string_pretty(&response)?;
+    eprintln!("Response:");
+    println!("\n{}", as_json);
 
     Ok(())
 }

@@ -17,8 +17,8 @@ pub enum BaseUrl {
 impl BaseUrl {
     fn url(&self) -> String {
         match self {
-            BaseUrl::Prod => "https://api.elections.kalshi.com".into(),
-            BaseUrl::Demo => "https://demo-api.kalshi.co".into(),
+            BaseUrl::Prod => "https://api.elections.kalshi.com/trade-api/v2".into(),
+            BaseUrl::Demo => "https://demo-api.kalshi.co/trade-api/v2".into(),
         }
     }
 }
