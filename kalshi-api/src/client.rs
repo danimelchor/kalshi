@@ -46,14 +46,11 @@ impl KalshiApiClient {
         let msg = format!("{now}{method}{path}");
         let signed_msg = self.private_key.sign(&msg)?;
 
-        eprintln!("{} {} {} {}", now, method, path, signed_msg);
-
         let mut headers = HeaderMap::new();
         let _ = headers.insert(CONTENT_TYPE, "application/json".parse()?);
         let _ = headers.insert("KALSHI-ACCESS-KEY", self.api_key.to_string().parse()?);
         let _ = headers.insert("KALSHI-ACCESS-SIGNATURE", signed_msg.parse()?);
         let _ = headers.insert("KALSHI-ACCESS-TIMESTAMP", now.to_string().parse()?);
-        eprintln!("{:?}", headers);
         Ok(headers)
     }
 
