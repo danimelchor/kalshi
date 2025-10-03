@@ -20,7 +20,8 @@ const METERS_ABOVE_GROUND: i32 = 2;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct SingleWeatherForecast {
     pub temperature: Temperature,
-    pub timestamp: DateTimeZoned,
+    pub at: DateTimeZoned,
+    pub forecast_ts: DateTimeZoned,
     pub _lead_time: usize,
 }
 
@@ -135,7 +136,8 @@ pub fn parse_report_with_opts(
     let timestamp = ts + TimeDelta::hours(lead_time as i64);
     Ok(SingleWeatherForecast {
         temperature,
-        timestamp: timestamp.into(),
+        at: timestamp.into(),
+        forecast_ts: ts.into(),
         _lead_time: lead_time,
     })
 }

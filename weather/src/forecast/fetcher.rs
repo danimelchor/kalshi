@@ -169,7 +169,7 @@ impl ForecastFetcher {
                 while let Some(update) = results.next().await {
                     match update {
                         Ok(update) => {
-                            let _ = self.state.insert(update.timestamp, update);
+                            let _ = self.state.insert(update.at, update);
                             let forecast = WeatherForecast::new(
                                 self.state.clone(),
                                 self.max_lead_time,

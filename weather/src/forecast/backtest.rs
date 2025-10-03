@@ -64,9 +64,9 @@ pub async fn main(
         match result {
             Ok(result) => {
                 for forecast in result {
-                    let dt: DateTime<Tz> = forecast.timestamp.into();
+                    let at: DateTime<Tz> = forecast.at.into();
                     let obj = &json!({
-                        "timestamp": dt,
+                        "timestamp": at,
                         "temperature": forecast.temperature.as_fahrenheit(),
                         "lead_time": forecast._lead_time,
                     });
