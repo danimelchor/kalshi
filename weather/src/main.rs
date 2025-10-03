@@ -1,9 +1,11 @@
 use anyhow::Result;
+use chrono::NaiveDateTime;
 use clap::{Parser, Subcommand};
 use futures::StreamExt;
-use std::pin::pin;
+use std::{path::PathBuf, pin::pin};
 use weather::{
     forecast::{
+        backtest,
         fetcher::ForecastFetcher,
         model::{ComputeOptions, Model},
     },
@@ -36,6 +38,22 @@ enum Commands {
     NWSHourlyTimeseries,
     NWSHourlyTable,
     NWSDailyReport,
+    Backtest {
+        #[arg(long, value_enum, default_value_t=Station::KNYC)]
+        station: Station,
+
+        #[arg(long, value_enum, default_value_t=Model::HRRR)]
+        model: Model,
+
+        #[arg(long)]
+        from: NaiveDateTime,
+
+        #[arg(long)]
+        to: NaiveDateTime,
+
+        #[arg(long)]
+        path: PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -70,6 +88,13 @@ async fn main() -> Result<()> {
             let last_temp = result.last().unwrap();
             println!("{:?}", last_temp);
         }
+        Commands::Backtest {
+            station,
+            model,
+            from,
+            to,
+            path,
+        } => backtest::main(station, model, from, to, path).await?,
     }
     Ok(())
 }

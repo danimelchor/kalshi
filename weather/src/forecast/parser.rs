@@ -3,6 +3,7 @@ use bytes::Bytes;
 use chrono::{DateTime, TimeDelta};
 use chrono_tz::Tz;
 use grib::{Grib2, SeekableGrib2Reader, SubMessage};
+use serde::Serialize;
 use std::io::Cursor;
 
 use crate::{
@@ -15,7 +16,7 @@ const TEMPERATURE_NUMBER: u8 = 0;
 const SURFACE_TYPE: u8 = 103;
 const METERS_ABOVE_GROUND: i32 = 2;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct SingleWeatherForecast {
     pub temperature: Temperature,
     pub timestamp: DateTime<Tz>,
@@ -67,6 +68,16 @@ fn temp_closest_to_station<'a>(
 
     let target = station.latlon();
 
+    let ((cached_i, cached_j), expected_grid_shape) =
+        model.computed_grid_location_and_info(station);
+    if expected_grid_shape != grid_shape {
+        return Err(anyhow!(
+            "Model's grid shape seems to have changed. Expected {:?} but got {:?}",
+            expected_grid_shape,
+            grid_shape
+        ));
+    }
+
     let temp_kelvin = match compute_opts {
         ComputeOptions::Compute => {
             let (idx, (lat, lon), (i, j), value) = latlon
@@ -82,22 +93,23 @@ fn temp_closest_to_station<'a>(
                 .ok_or_else(|| anyhow!("No data points found in submessage"))?;
 
             println!("Idx: {}", idx);
-            println!("i,j: {} {}", i, j);
+            println!("Computed i,j: {} {}", i, j);
+            println!("Cached i,j: {} {}", cached_i, cached_j);
             println!("Lat, lon: {} {}", lat, lon);
             println!("Grid size: {:?}", grid_shape);
-            value
-        }
-        ComputeOptions::Precomputed => {
-            let ((i, j), expected_grid_shape) = model.computed_grid_location_and_info(station);
-            if expected_grid_shape != grid_shape {
+
+            if (cached_i, cached_j) != (i, j) {
                 return Err(anyhow!(
-                    "Model's grid shape seems to have changed. Expected {:?} but got {:?}",
-                    expected_grid_shape,
-                    grid_shape
+                    "Model's precomputed values are wrong. Expected {:?} but got {:?}",
+                    (cached_i, cached_j),
+                    (i, j)
                 ));
             }
 
-            let idx = grid_shape.0 * j + i;
+            value
+        }
+        ComputeOptions::Precomputed => {
+            let idx = grid_shape.0 * cached_j + cached_i;
             values
                 .nth(idx)
                 .ok_or_else(|| anyhow!("Index out of bounds for model grid"))?

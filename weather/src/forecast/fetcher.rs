@@ -10,7 +10,7 @@ use tokio::sync::Semaphore;
 
 use crate::{
     forecast::{
-        http::{get_report, wait_for_report},
+        http::{ForecastHttpOptions, get_report, wait_for_report},
         model::{ComputeOptions, Model},
         parser::{SingleWeatherForecast, parse_report_with_opts},
     },
@@ -46,12 +46,13 @@ impl WeatherForecast {
     }
 }
 
-struct ForecastCycle {
+pub struct ForecastCycle {
     ts: DateTime<Tz>,
     max_lead_time: usize,
     station: Station,
     model: Model,
     compute_options: ComputeOptions,
+    historical: bool,
 }
 
 impl ForecastCycle {
@@ -61,6 +62,7 @@ impl ForecastCycle {
         compute_options: ComputeOptions,
         ts: DateTime<Tz>,
         max_lead_time: usize,
+        historical: bool,
     ) -> Self {
         Self {
             ts,
@@ -68,6 +70,7 @@ impl ForecastCycle {
             model,
             station,
             max_lead_time,
+            historical,
         }
     }
 
@@ -77,12 +80,13 @@ impl ForecastCycle {
         sem: Arc<Semaphore>,
     ) -> Result<SingleWeatherForecast> {
         let permit = sem.acquire().await.expect("Unwrapping semaphore");
-        wait_for_report(&self.model, &self.ts, lead_time).await?;
+        let opts = ForecastHttpOptions::new(self.model, self.ts, lead_time, self.historical);
+        wait_for_report(&opts).await?;
 
         // Parsing the report can be done while we download the next one
         drop(permit);
 
-        let bytes = get_report(&self.model, &self.ts, lead_time).await?;
+        let bytes = get_report(&opts).await?;
         let station = self.station;
         let model = self.model;
         let ts = self.ts;
@@ -152,7 +156,8 @@ impl ForecastFetcher {
                     self.model,
                     self.compute_options,
                     ts,
-                    self.max_lead_time
+                    self.max_lead_time,
+                    false,
                 );
                 let mut results = forecast_cycle.fetch();
                 while let Some(update) = results.next().await {
