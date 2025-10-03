@@ -56,7 +56,7 @@ impl NWSDailyReport {
         let caps = re
             .captures(maximum_line.trim())
             .context("Malformed daily report")?;
-        let max_temp_f = caps[1].parse::<f32>().context("Malformed daily report")?;
+        let max_temp_f = caps[1].parse::<f64>().context("Malformed daily report")?;
 
         Ok(Self {
             datetime: dt.into(),

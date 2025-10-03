@@ -7,19 +7,21 @@ pub enum Bucket {
     Gte(usize),
 }
 
-pub fn bucket_probs(buckets: Vec<Bucket>, mu: f64, sigma: f64) -> Vec<f64> {
+pub fn bucket_probability(bucket: &Bucket, mu: f64, sigma: f64) -> f64 {
     let normal = Normal::new(mu, sigma).unwrap();
+    match bucket {
+        Bucket::Lte(lt) => normal.cdf(*lt as f64 + 1.0 - f64::EPSILON),
+        Bucket::Between(start, stop) => {
+            normal.cdf(*stop as f64 + 1.0 - f64::EPSILON) - normal.cdf(*start as f64)
+        }
+        Bucket::Gte(gt) => 1.0 - normal.cdf(*gt as f64),
+    }
+}
 
+pub fn bucket_probabilities(buckets: Vec<Bucket>, mu: f64, sigma: f64) -> Vec<f64> {
     let mut probs = Vec::with_capacity(buckets.len());
     for bucket in buckets {
-        let prob = match bucket {
-            Bucket::Lte(lt) => normal.cdf(lt as f64 + 1.0 - f64::EPSILON),
-            Bucket::Between(start, stop) => {
-                normal.cdf(stop as f64 + 1.0 - f64::EPSILON) - normal.cdf(start as f64)
-            }
-            Bucket::Gte(gt) => 1.0 - normal.cdf(gt as f64),
-        };
-        probs.push(prob);
+        probs.push(bucket_probability(&bucket, mu, sigma));
     }
     probs
 }
@@ -30,6 +32,28 @@ mod tests {
     use approx::assert_relative_eq;
 
     #[test]
+    fn test_single_bucket() {
+        // This mimicks the HRRR's sigma of 1.5K at lead time < 6
+        let sigma_f = 1.5 * 9. / 5.;
+        eprintln!("{:?}", sigma_f);
+        let bucket = Bucket::Between(61, 62);
+        let prob = bucket_probability(&bucket, 62., sigma_f);
+        eprintln!("{:?}", prob);
+        assert_relative_eq!(prob * 100.0, 28.88, epsilon = 1e-2);
+    }
+
+    #[test]
+    fn test_single_bucket2() {
+        // This mimicks the HRRR's sigma of 3K at lead time > 6
+        let sigma_f = 3.0 * 9. / 5.;
+        println!("{}", sigma_f);
+        let bucket = Bucket::Between(61, 62);
+        let prob = bucket_probability(&bucket, 62., sigma_f);
+        eprintln!("{:?}", prob);
+        assert_relative_eq!(prob * 100.0, 14.69, epsilon = 1e-2);
+    }
+
+    #[test]
     fn test_normal_probabilities() {
         let buckets = vec![
             Bucket::Lte(60),
@@ -38,7 +62,7 @@ mod tests {
             Bucket::Between(65, 66),
             Bucket::Gte(67),
         ];
-        let probs = bucket_probs(buckets, 64.0, 1.5);
+        let probs = bucket_probabilities(buckets, 64.0, 1.5);
         eprintln!("{:?}", probs);
         assert_relative_eq!(probs[0] * 100.0, 2.27, epsilon = 1e-2);
         assert_relative_eq!(probs[1] * 100.0, 22.97, epsilon = 1e-2);
@@ -58,7 +82,7 @@ mod tests {
             Bucket::Between(65, 66),
             Bucket::Gte(67),
         ];
-        let probs = bucket_probs(buckets, 64.0, 0.000001);
+        let probs = bucket_probabilities(buckets, 64.0, 0.000001);
         eprintln!("{:?}", probs);
         assert_relative_eq!(probs[0] * 100.0, 0., epsilon = 1e-2);
         assert_relative_eq!(probs[1] * 100.0, 0., epsilon = 1e-2);

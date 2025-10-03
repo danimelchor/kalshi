@@ -104,7 +104,7 @@ fn temp_closest_to_station<'a>(
         }
     };
 
-    Ok(Temperature::Kelvin(temp_kelvin).to_fahrenheit())
+    Ok(Temperature::Kelvin(temp_kelvin as f64).to_fahrenheit())
 }
 
 pub fn parse_report_with_opts(

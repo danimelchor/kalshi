@@ -31,7 +31,7 @@ fn clean_col(name: &str) -> String {
     name.replace(' ', "_")
 }
 
-fn to_float(val: &String) -> Result<f32, &'static str> {
+fn to_float(val: &String) -> Result<f64, &'static str> {
     if val.trim().is_empty() {
         return Err("Invalid float");
     }
@@ -39,10 +39,10 @@ fn to_float(val: &String) -> Result<f32, &'static str> {
         return Ok(0.0);
     }
     let cleaned = val.replace('<', "");
-    cleaned.parse::<f32>().map_err(|_| "Invalid float")
+    cleaned.parse::<f64>().map_err(|_| "Invalid float")
 }
 
-fn maybe_to_float(val: Option<&String>) -> Option<f32> {
+fn maybe_to_float(val: Option<&String>) -> Option<f64> {
     val.and_then(|v| to_float(v).ok())
 }
 

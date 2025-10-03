@@ -55,7 +55,7 @@ impl NWSHourlyTableTemperature {
 
         // Temperature measurement
         let temperature = cells.get(TEMP_IDX).context("Expected a temp column")?;
-        let temperature: f32 = temperature
+        let temperature: f64 = temperature
             .parse()
             .context("Expected temperature to be a float")?;
         let temperature = Temperature::Fahrenheit(temperature);
@@ -65,7 +65,7 @@ impl NWSHourlyTableTemperature {
             .get(MAX_SIX_H_IDX)
             .context("Expected a max 6h temp column")?;
         let six_hr_max_temperature: Option<Temperature> = six_hr_max_temperature
-            .parse::<f32>()
+            .parse::<f64>()
             .ok()
             .map(Temperature::Fahrenheit);
 

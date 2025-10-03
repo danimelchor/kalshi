@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Temperature {
-    Celsius(f32),
-    Fahrenheit(f32),
-    Kelvin(f32),
+    Celsius(f64),
+    Fahrenheit(f64),
+    Kelvin(f64),
 }
 
 impl Temperature {
-    pub fn as_celsius(&self) -> f32 {
+    pub fn as_celsius(&self) -> f64 {
         match *self {
             Temperature::Celsius(c) => c,
             Temperature::Fahrenheit(f) => (f - 32.0) * 5.0 / 9.0,
@@ -18,7 +18,7 @@ impl Temperature {
         }
     }
 
-    pub fn as_fahrenheit(&self) -> f32 {
+    pub fn as_fahrenheit(&self) -> f64 {
         match *self {
             Temperature::Celsius(c) => (c * 9.0 / 5.0) + 32.0,
             Temperature::Fahrenheit(f) => f,
@@ -26,7 +26,7 @@ impl Temperature {
         }
     }
 
-    pub fn as_kelvin(&self) -> f32 {
+    pub fn as_kelvin(&self) -> f64 {
         match *self {
             Temperature::Celsius(c) => c + 273.15,
             Temperature::Fahrenheit(f) => (f - 32.0) * 5.0 / 9.0 + 273.15,
