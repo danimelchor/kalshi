@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "kalshi-bot", "weather", "protocol", "telegram",
+    "kalshi-bot", "weather", "protocol", "telegram", "kalshi-api-spec", "kalshi-api",
 ]
 
 resolver = "3"

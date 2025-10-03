@@ -1623,6 +1623,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "kalshi-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "chrono-tz 0.10.4",
+ "clap",
+ "dotenvy",
+ "futures",
+ "reqwest",
+ "tokio",
+]
+
+[[package]]
+name = "kalshi-api-spec"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "chrono-tz 0.10.4",
+]
+
+[[package]]
 name = "kalshi-bot"
 version = "0.1.0"
 dependencies = [
