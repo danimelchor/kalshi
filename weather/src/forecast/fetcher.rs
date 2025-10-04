@@ -20,7 +20,6 @@ pub use crate::forecast::parser::SingleWeatherForecast;
 
 pub struct ForecastCycle {
     ts: DateTime<Tz>,
-    max_lead_time: usize,
     station: Station,
     model: Model,
     compute_options: ComputeOptions,
@@ -33,7 +32,6 @@ impl ForecastCycle {
         model: Model,
         compute_options: ComputeOptions,
         ts: DateTime<Tz>,
-        max_lead_time: usize,
         historical: bool,
     ) -> Self {
         Self {
@@ -41,7 +39,6 @@ impl ForecastCycle {
             compute_options,
             model,
             station,
-            max_lead_time,
             historical,
         }
     }
@@ -78,7 +75,7 @@ impl ForecastCycle {
         let semaphore = Arc::new(Semaphore::new(12));
 
         let tasks = FuturesUnordered::new();
-        for lead_time in 0..=self.max_lead_time {
+        for lead_time in 1..=self.model.max_runs() {
             let sem = semaphore.clone();
 
             // With historical runs we don't wait if it doesn't exist
@@ -119,29 +116,15 @@ pub struct ForecastFetcher {
     state: BTreeMap<DateTimeZoned, SingleWeatherForecast>,
     station: Station,
     model: Model,
-    max_lead_time: usize,
     compute_options: ComputeOptions,
 }
 
 impl ForecastFetcher {
-    pub fn new(
-        station: Station,
-        model: Model,
-        max_lead_time: usize,
-        compute_options: Option<ComputeOptions>,
-    ) -> Self {
+    pub fn new(station: Station, model: Model, compute_options: Option<ComputeOptions>) -> Self {
         let compute_options = compute_options.unwrap_or(ComputeOptions::Precomputed);
-        if max_lead_time > model.max_runs() {
-            panic!(
-                "The {} model supports at most {} runs",
-                model,
-                model.max_runs()
-            )
-        }
         Self {
             compute_options,
             state: BTreeMap::new(),
-            max_lead_time,
             station,
             model,
         }
@@ -162,7 +145,6 @@ impl ForecastFetcher {
                     self.model,
                     self.compute_options,
                     ts,
-                    self.max_lead_time,
                     false,
                 );
                 let mut results = forecast_cycle.fetch();
@@ -172,7 +154,7 @@ impl ForecastFetcher {
                             let _ = self.state.insert(update.at, update);
                             let forecast = WeatherForecast::new(
                                 self.state.clone(),
-                                self.max_lead_time,
+                                self.model.max_runs(),
                             );
                             yield Ok(forecast)
                         },
