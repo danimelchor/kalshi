@@ -98,12 +98,12 @@ async fn maybe_update_max_temp(
 
     match guard.as_ref() {
         None => {
-            *guard = Some((seen));
+            *guard = Some(seen);
             send_telegram(seen).await?;
         }
         Some(max_t) => {
             if seen > *max_t {
-                *guard = Some((seen));
+                *guard = Some(seen);
                 send_telegram(seen).await?;
             }
         }
