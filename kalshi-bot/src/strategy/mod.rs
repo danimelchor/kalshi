@@ -3,6 +3,7 @@ mod forecast_notifier;
 pub mod name;
 pub mod strategy;
 mod utils;
+mod weather_better;
 
 use crate::strategy::{
     dump_if_temp_higher::DumpIfTempHigher, forecast_notifier::ForecastNotifier, name::StrategyName,
@@ -28,6 +29,10 @@ pub async fn run_strategy(command: &StrategyCommand) -> Result<()> {
             strategy.run(&command.date).await.unwrap()
         }
         StrategyName::DumpIfTempHigher => {
+            let mut strategy = DumpIfTempHigher::new(Station::KNYC).await;
+            strategy.run(&command.date).await.unwrap()
+        }
+        StrategyName::WeatherBetter => {
             let mut strategy = DumpIfTempHigher::new(Station::KNYC).await;
             strategy.run(&command.date).await.unwrap()
         }

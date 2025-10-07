@@ -7,4 +7,5 @@ use strum_macros::EnumIter;
 pub enum StrategyName {
     ForecastNotifier,
     DumpIfTempHigher,
+    WeatherBetter,
 }

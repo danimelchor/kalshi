@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
             compute_opts,
             model,
         } => {
-            let mut fetcher = ForecastFetcher::new(cli.station, model, 12, compute_opts);
+            let mut fetcher = ForecastFetcher::new(cli.station, model, compute_opts);
             let mut result = pin!(fetcher.fetch());
             while let Some(forecast) = result.next().await {
                 println!("{:?}", forecast);

@@ -27,7 +27,7 @@ impl Display for WeatherForecastDataSource {
 
 impl WeatherForecastDataSource {
     pub fn new(station: Station, model: Model) -> Self {
-        let fetcher = ForecastFetcher::new(station, model, 18, None);
+        let fetcher = ForecastFetcher::new(station, model, None);
         Self { fetcher }
     }
 }

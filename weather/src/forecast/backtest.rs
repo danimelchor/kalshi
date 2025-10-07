@@ -22,7 +22,7 @@ async fn fetch_one(
     sm: Arc<Semaphore>,
 ) -> Result<Vec<SingleWeatherForecast>> {
     let _permit = sm.acquire().await?;
-    let fetcher = ForecastCycle::new(station, model, ComputeOptions::Precomputed, ts, 18, true);
+    let fetcher = ForecastCycle::new(station, model, ComputeOptions::Precomputed, ts, true);
     let results: Vec<Result<SingleWeatherForecast>> = fetcher.fetch().collect().await;
     let results: Result<Vec<SingleWeatherForecast>> = results.into_iter().collect();
     let results = results?;
